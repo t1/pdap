@@ -1,4 +1,5 @@
-import com.github.t1.pdap.PackageDependenciesAnnotationProcessor;
+package com.github.t1.pdap;
+
 import org.joor.CompileOptions;
 import org.joor.Reflect;
 import org.joor.ReflectException;

@@ -16,14 +16,8 @@
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>packagage.dependencies.annotation.processor</artifactId>
+            <artifactId>package.dependencies.annotation.processor</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jooq</groupId>
-            <artifactId>joor</artifactId>
-            <version>0.9.10</version>
         </dependency>
     </dependencies>
 </project>

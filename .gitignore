@@ -1,4 +1,4 @@
 .idea/
-packagage-dependencies-annotation-processor.iml
+*.iml
 
 target/

@@ -11,7 +11,7 @@
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>packagage.dependencies.annotation.processor</artifactId>
+    <artifactId>package.dependencies.annotation.processor</artifactId>
 
     <build>
         <plugins>
@@ -43,4 +43,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.jooq</groupId>
+            <artifactId>joor</artifactId>
+            <version>0.9.10</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 </project>
