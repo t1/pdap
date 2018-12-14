@@ -20,15 +20,15 @@ class PackageDependenciesAnnotationProcessorTest {
                 "}"));
 
         assertThat(throwable).isExactlyInstanceOf(ReflectException.class).hasMessage("" +
-            "Compilation error: /FailAnnotationProcessing.java:2: error: Annotation A must be accompanied by annotation B\n" +
+            "Compilation error: /FailAnnotationProcessing.java:4: error: Annotation A must be accompanied by annotation B\n" +
             "public class FailAnnotationProcessing {\n" +
             "       ^\n" +
             "1 error\n");
     }
 
     @Test void shouldSucceedAnnotationProcessing() {
-        compile("SucceedAnnotationProcessing", ""
-            + "import com.github.t1.pdap.A;\n" +
+        compile("SucceedAnnotationProcessing", "" +
+            "import com.github.t1.pdap.A;\n" +
             "import com.github.t1.pdap.B;\n" +
             "\n" +
             "@A @B\n" +
