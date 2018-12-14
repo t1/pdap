@@ -7,22 +7,23 @@
 
     <parent>
         <groupId>com.github.t1</groupId>
-        <artifactId>packagage-dependencies-annotation-processor</artifactId>
+        <artifactId>pdap-parent</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>packagage-dependencies-annotation-processor-test</artifactId>
+    <artifactId>pdap-test</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>packagage.dependencies.annotation.processor.annotations</artifactId>
+            <artifactId>packagage.dependencies.annotation.processor</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>packagage.dependencies.annotation.processor.processor</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.jooq</groupId>
+            <artifactId>joor</artifactId>
+            <version>0.9.10</version>
         </dependency>
     </dependencies>
 </project>
