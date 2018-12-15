@@ -7,6 +7,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -21,7 +22,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         note("process annotations " + annotations);
         for (Element element : roundEnv.getRootElements()) {
             if (element.getAnnotation(A.class) != null && element.getAnnotation(B.class) == null) {
-               error("Annotation A must be accompanied by annotation B", element);
+                error("Annotation A must be accompanied by annotation B", element);
             }
 
             other("process " + element.getKind() + " : " + element, element);
@@ -34,7 +35,8 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             }
         }
         note("process end");
-        return false;
+        Iterator<? extends TypeElement> iterator = annotations.iterator();
+        return iterator.hasNext() && iterator.next().getQualifiedName().toString().equals(DependsUpon.class.getName());
     }
 
     // we do more casts than strictly necessary to document what's happening

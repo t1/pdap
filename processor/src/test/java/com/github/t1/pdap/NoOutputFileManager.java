@@ -1,4 +1,4 @@
-package source;
+package com.github.t1.pdap;
 
 import javax.tools.FileObject;
 import javax.tools.ForwardingJavaFileManager;

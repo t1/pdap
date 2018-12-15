@@ -1,6 +1,5 @@
-package source;
+package com.github.t1.pdap;
 
-import com.github.t1.pdap.PackageDependenciesAnnotationProcessor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,32 +16,53 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-import static java.util.Collections.singleton;
-import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PackageDependenciesAnnotationProcessorTest {
-    private List<DiagnosticMatch> compile(String fileName, String source) {
+    private List<DiagnosticMatch> compile(String fileName, String source) { return compile(Map.of(fileName, source)); }
+
+    private List<DiagnosticMatch> compile(Map<String, String> files) {
+        return compile(files.entrySet().stream()
+            .map(entry -> new StringJavaFileObject(Paths.get(entry.getKey() + ".java"), entry.getValue()))
+            .collect(Collectors.toList()));
+    }
+
+    private List<DiagnosticMatch> compile(List<JavaFileObject> compilationUnits) {
         List<DiagnosticMatch> diagnostics = new ArrayList<>();
-        DiagnosticListener<JavaFileObject> diagnosticListener = diagnostic -> diagnostics.add(new DiagnosticMatch(diagnostic));
+
+        DiagnosticListener<JavaFileObject> diagnosticListener = diagnostic -> {
+            System.out.println(diagnostic.getKind() + " [" + diagnostic.getCode() + "] " + diagnostic.getMessage(Locale.getDefault()));
+            diagnostics.add(new DiagnosticMatch(diagnostic));
+        };
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         NoOutputFileManager fileManager = new NoOutputFileManager(compiler.getStandardFileManager(null, null, null));
-        List<JavaFileObject> compilationUnits = new ArrayList<>();
-        compilationUnits.add(new StringJavaFileObject(Paths.get(fileName + ".java"), source));
-        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, singletonList("-Xlint:all"), null, compilationUnits);
-        task.setProcessors(singleton(new PackageDependenciesAnnotationProcessor()));
+
+        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, List.of("-Xlint:all"), null, compilationUnits);
+        task.setProcessors(List.of(new PackageDependenciesAnnotationProcessor()));
         task.call();
+
         return diagnostics;
     }
 
     private List<DiagnosticMatch> errors(List<DiagnosticMatch> diagnostics) {
-        return diagnostics.stream().filter(diagnostic -> diagnostic.getKind() == Kind.ERROR).collect(Collectors.toList());
+        return diagnostics.stream().filter(diagnostic -> is(diagnostic, Kind.ERROR)).collect(Collectors.toList());
     }
+
+    private List<DiagnosticMatch> warnings(List<DiagnosticMatch> diagnostics) {
+        return diagnostics.stream().filter(diagnostic -> is(diagnostic, Kind.WARNING) || is(diagnostic, Kind.MANDATORY_WARNING)).collect(Collectors.toList());
+    }
+
+    private boolean is(DiagnosticMatch diagnostic, Kind warning) { return diagnostic.getKind() == warning; }
 
     private DiagnosticMatch error(String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
         return new DiagnosticMatch(Kind.ERROR, source, position, startPosition, endPosition, lineNumber, columnNumber, code, message);
+    }
+
+    private DiagnosticMatch warning(String code, String message) {
+        return new DiagnosticMatch(Kind.WARNING, null, -1, -1, -1, -1, -1, code, message);
     }
 
     private DiagnosticMatch warning(String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
@@ -95,50 +115,62 @@ class PackageDependenciesAnnotationProcessorTest {
     }
 
     @Test void shouldSucceedAllowedDependency() {
-        List<DiagnosticMatch> diagnostics = compile(
-            "source/Source", "" +
+        List<DiagnosticMatch> diagnostics = compile(Map.of(
+            "com/github/t1/pdap/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "com/github/t1/pdap/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target target;\n" +
-                "}\n");
-
-        assertThat(errors(diagnostics)).isEmpty();
-    }
-
-    @Test void shouldFailDisallowedDependency() {
-        List<DiagnosticMatch> diagnostics = compile(
-            "target.Target2", "" +
+                "}\n",
+            "target/Target", "" +
                 "package target;\n" +
                 "\n" +
                 "import source.Source;\n" +
                 "\n" +
-                "public class Target2 {\n" +
+                "public class Target {\n" +
                 "    private Source source;\n" +
-                "}\n");
+                "}\n"));
 
-        assertThat(errors(diagnostics)).containsExactly(
-            error("/target.Target2.java", 47, 40, 91, 5, 8, "compiler.err.class.public.should.be.in.file", "class Target2 is public, should be declared in a file named Target2.java"),
-            error("/target.Target2.java", 30, 24, 37, 3, 14, "compiler.err.cant.resolve.location", "cannot find symbol\n" +
-                "  symbol:   class Source\n" +
-                "  location: package source"),
-            error("/target.Target2.java", 75, 75, 81, 6, 13, "compiler.err.cant.resolve.location", "cannot find symbol\n" +
-                "  symbol:   class Source\n" +
-                "  location: class target.Target2")
+        assertThat(errors(diagnostics)).isEmpty();
+        assertThat(warnings(diagnostics)).containsExactly(
+            warning("compiler.warn.proc.messager", "depends upon [target]")
         );
-        // "/target/Target2.java:3: error: cannot find symbol\n" +
-        // "import source.Source;\n" +
-        // "             ^\n" +
-        // "  symbol:   class Source\n" +
-        // "  location: package source\n" +
-        // "/target/Target2.java:6: error: cannot find symbol\n" +
-        // "    private Source source;\n" +
-        // "            ^\n" +
-        // "  symbol:   class Source\n" +
-        // "  location: class Target2\n" +
-        // "2 errors\n");
+    }
+
+    @Test void shouldFailDisallowedDependency() {
+        List<DiagnosticMatch> diagnostics = compile(Map.of(
+            "com/github/t1/pdap/package-info", "" +
+                "@DependsUpon(\"xxx\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "import source.Source;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "    private Source source;\n" +
+                "}\n",
+            "com/github/t1/pdap/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Target target;\n" +
+                "}\n"));
+
+        assertThat(warnings(diagnostics)).containsExactly(
+            warning("compiler.warn.proc.messager", "depends upon [xxx]")
+        );
     }
 
     @Data
