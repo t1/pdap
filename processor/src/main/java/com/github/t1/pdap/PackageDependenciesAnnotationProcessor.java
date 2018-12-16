@@ -24,10 +24,21 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             other("process " + element.getKind() + " : " + element, element);
             if (element.getKind() == ElementKind.PACKAGE)
                 continue;
+            PackageElement packageElement = (PackageElement) element.getEnclosingElement();
+            other("# " + packageElement.getQualifiedName());
+            for (Element enclosedElement : packageElement.getEnclosedElements()) {
+                other("-> " + enclosedElement.getKind() + ": " + enclosedElement);
+            }
             DependsUpon dependsUpon = findDependsUpon(element);
             if (dependsUpon != null) {
                 List<String> packages = asList(dependsUpon.value());
-                warning("depends upon " + packages, element);
+                warning("can depend upon " + packages, element);
+                for (String dependency : packages) {
+                    PackageElement dependencyElement = processingEnv.getElementUtils().getPackageElement(dependency);
+                    if (dependencyElement == null) {
+                        error("Invalid dependency. Unknown package [" + dependency + "].", element);
+                    }
+                }
             }
         }
         note("process end");

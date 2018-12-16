@@ -57,16 +57,20 @@ class PackageDependenciesAnnotationProcessorTest {
 
     private boolean is(DiagnosticMatch diagnostic, Kind warning) { return diagnostic.getKind() == warning; }
 
-    private DiagnosticMatch error(String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
-        return new DiagnosticMatch(Kind.ERROR, source, position, startPosition, endPosition, lineNumber, columnNumber, code, message);
-    }
-
-    private DiagnosticMatch warning(String code, String message) {
-        return new DiagnosticMatch(Kind.WARNING, null, -1, -1, -1, -1, -1, code, message);
+    private DiagnosticMatch warning(String message) {
+        return new DiagnosticMatch(Kind.WARNING, null, -1, -1, -1, -1, -1, "compiler.warn.proc.messager", message);
     }
 
     private DiagnosticMatch warning(String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
         return new DiagnosticMatch(Kind.WARNING, source, position, startPosition, endPosition, lineNumber, columnNumber, code, message);
+    }
+
+    private DiagnosticMatch error(String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
+        return new DiagnosticMatch(Kind.ERROR, source, position, startPosition, endPosition, lineNumber, columnNumber, code, message);
+    }
+
+    private DiagnosticMatch error(String message) {
+        return new DiagnosticMatch(Kind.ERROR, null, -1, -1, -1, -1, -1, "compiler.err.proc.messager", message);
     }
 
 
@@ -90,14 +94,32 @@ class PackageDependenciesAnnotationProcessorTest {
             error("/FailAnnotationProcessing.java", 1, 1, 18, 1, 2, "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
     }
 
+    @Test void shouldFailInvalidDependsUpon() {
+        List<DiagnosticMatch> diagnostics = compile(Map.of(
+            "source/package-info", "" +
+                "@DependsUpon(\"undefined\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "}\n"));
+
+        assertThat(errors(diagnostics)).containsExactly(
+            error("Invalid dependency. Unknown package [undefined].")
+        );
+    }
+
     @Test void shouldSucceedAllowedDependency() {
         List<DiagnosticMatch> diagnostics = compile(Map.of(
-            "com/github/t1/pdap/package-info", "" +
+            "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
                 "package source;\n" +
                 "\n" +
                 "import com.github.t1.pdap.DependsUpon;\n",
-            "com/github/t1/pdap/Source", "" +
+            "source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target.Target;\n" +
@@ -116,13 +138,13 @@ class PackageDependenciesAnnotationProcessorTest {
 
         assertThat(errors(diagnostics)).isEmpty();
         assertThat(warnings(diagnostics)).containsExactly(
-            warning("compiler.warn.proc.messager", "depends upon [target]")
+            warning("can depend upon [target]")
         );
     }
 
     @Test void shouldFailDisallowedDependency() {
         List<DiagnosticMatch> diagnostics = compile(Map.of(
-            "com/github/t1/pdap/package-info", "" +
+            "source/package-info", "" +
                 "@DependsUpon(\"xxx\")\n" +
                 "package source;\n" +
                 "\n" +
@@ -135,7 +157,7 @@ class PackageDependenciesAnnotationProcessorTest {
                 "public class Target {\n" +
                 "    private Source source;\n" +
                 "}\n",
-            "com/github/t1/pdap/Source", "" +
+            "source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target.Target;\n" +
@@ -145,7 +167,7 @@ class PackageDependenciesAnnotationProcessorTest {
                 "}\n"));
 
         assertThat(warnings(diagnostics)).containsExactly(
-            warning("compiler.warn.proc.messager", "depends upon [xxx]")
+            warning("can depend upon [xxx]")
         );
     }
 
