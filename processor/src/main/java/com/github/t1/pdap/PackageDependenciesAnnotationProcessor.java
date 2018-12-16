@@ -94,37 +94,9 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 return element.getAnnotation(DependsUpon.class);
             case ENUM:
             case CLASS:
-                return findDependsUpon((PackageElement) element.getEnclosingElement());
             case ANNOTATION_TYPE:
-                break;
             case INTERFACE:
-                break;
-            case ENUM_CONSTANT:
-                break;
-            case FIELD:
-                break;
-            case PARAMETER:
-                break;
-            case LOCAL_VARIABLE:
-                break;
-            case EXCEPTION_PARAMETER:
-                break;
-            case METHOD:
-                break;
-            case CONSTRUCTOR:
-                break;
-            case STATIC_INIT:
-                break;
-            case INSTANCE_INIT:
-                break;
-            case TYPE_PARAMETER:
-                break;
-            case OTHER:
-                break;
-            case RESOURCE_VARIABLE:
-                break;
-            case MODULE:
-                break;
+                return findDependsUpon((PackageElement) element.getEnclosingElement());
         }
         error("don't know how to find DependsUpon for " + element.getKind() + " " + element);
         return null;

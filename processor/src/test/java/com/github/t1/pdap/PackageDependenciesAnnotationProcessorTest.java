@@ -119,6 +119,55 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
+    @Test void shouldCompileAnnotationWithAllowedDependency() {
+        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        compile(Map.of(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public @interface Source {\n" +
+                "    Class<Target> value();\n" +
+                "}\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n"));
+
+        expect();
+    }
+
+    @Test void shouldCompileInterfaceWithAllowedDependency() {
+        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        compile(Map.of(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public interface Source extends Target {\n" +
+                "}\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public interface Target {\n" +
+                "}\n"));
+
+        expect();
+    }
+
     @Test void shouldFailWithTwoDisallowedDependencies() {
         pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target1"), new SimpleEntry<>("source", "target2"));
         compile(Map.of(
