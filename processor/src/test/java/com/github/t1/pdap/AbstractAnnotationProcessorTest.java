@@ -51,6 +51,7 @@ public class AbstractAnnotationProcessorTest {
     }
 
     private final List<DiagnosticMatch> diagnostics = new ArrayList<>();
+    PackageDependenciesAnnotationProcessor pdap = new PackageDependenciesAnnotationProcessor();
 
     void compile(String fileName, String source) { compile(Map.of(fileName, source)); }
 
@@ -69,7 +70,7 @@ public class AbstractAnnotationProcessorTest {
         NoOutputFileManager fileManager = new NoOutputFileManager(compiler.getStandardFileManager(null, null, null));
 
         CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, List.of("-Xlint:all"), null, compilationUnits);
-        task.setProcessors(List.of(new PackageDependenciesAnnotationProcessor()));
+        task.setProcessors(List.of(pdap));
         task.call();
     }
 
@@ -80,8 +81,8 @@ public class AbstractAnnotationProcessorTest {
      */
     void expect(DiagnosticMatch... expectedDiagnostics) {
         List<DiagnosticMatch> expectedList = new ArrayList<>(asList(expectedDiagnostics));
-        assertThat(errors(diagnostics)).describedAs("errors").containsExactlyElementsOf(errors(expectedList));
-        assertThat(warnings(diagnostics)).describedAs("warnings").containsExactlyElementsOf(warnings(expectedList));
+        assertThat(errors(diagnostics)).describedAs("errors").containsOnlyElementsOf(errors(expectedList));
+        assertThat(warnings(diagnostics)).describedAs("warnings").containsOnlyElementsOf(warnings(expectedList));
         assertThat(notes(diagnostics)).describedAs("notes").containsAll(notes(expectedList));
         assertThat(diagnostics).allMatch(this::isNoteOrOther);
         assertThat(expectedList).isEmpty();

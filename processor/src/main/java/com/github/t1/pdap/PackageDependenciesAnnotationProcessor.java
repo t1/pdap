@@ -7,9 +7,13 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import java.util.Iterator;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 import static javax.lang.model.SourceVersion.RELEASE_11;
@@ -17,9 +21,12 @@ import static javax.lang.model.SourceVersion.RELEASE_11;
 @SupportedSourceVersion(RELEASE_11)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
+    Set<Entry<String, String>> actualDependencies;
+
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         other("process annotations " + annotations);
+        Set<Entry<String, String>> dependencyErrors = new LinkedHashSet<>();
         for (Element element : roundEnv.getRootElements()) {
             other("process " + element.getKind() + " : " + element, element);
             if (element.getKind() == ElementKind.PACKAGE)
@@ -29,21 +36,46 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             for (Element enclosedElement : packageElement.getEnclosedElements()) {
                 other("-> " + enclosedElement.getKind() + ": " + enclosedElement);
             }
-            DependsUpon dependsUpon = findDependsUpon(element);
-            if (dependsUpon != null) {
-                List<String> packages = asList(dependsUpon.value());
-                note("can depend upon " + packages, element);
-                for (String dependency : packages) {
-                    PackageElement dependencyElement = processingEnv.getElementUtils().getPackageElement(dependency);
-                    if (dependencyElement == null) {
-                        error("Invalid dependency. Unknown package [" + dependency + "].", element);
-                    }
+            List<PackageElement> allowedDependencies = allowedDependencies(element);
+            actualClassDependencies(packageElement).forEach(it -> {
+                String source = packageElement.getQualifiedName().toString();
+                String target = it.getQualifiedName().toString();
+                if (allowedDependencies.contains(it)) {
+                    other("allowed dependency [" + source + "] to [" + target + "]");
+                } else {
+                    dependencyErrors.add(new SimpleEntry<>(source, target));
+                }
+            });
+        }
+        dependencyErrors.forEach(it -> error("Forbidden dependency from [" + it.getKey() + "] to [" + it.getValue() + "]"));
+        other("process end");
+        return true;
+    }
+
+    private List<PackageElement> allowedDependencies(Element element) {
+        List<PackageElement> allowedDependencies = new ArrayList<>();
+        DependsUpon dependsUpon = findDependsUpon(element);
+        if (dependsUpon != null) {
+            List<String> packages = asList(dependsUpon.value());
+            note("can depend upon " + packages, element);
+            for (String dependency : packages) {
+                PackageElement dependencyElement = processingEnv.getElementUtils().getPackageElement(dependency);
+                if (dependencyElement == null) {
+                    error("Invalid `DependsOn`: Unknown package [" + dependency + "].", element);
+                } else {
+                    allowedDependencies.add(dependencyElement);
                 }
             }
         }
-        other("process end");
-        Iterator<? extends TypeElement> iterator = annotations.iterator();
-        return iterator.hasNext() && iterator.next().getQualifiedName().toString().equals(DependsUpon.class.getName());
+        return allowedDependencies;
+    }
+
+    private Stream<PackageElement> actualClassDependencies(PackageElement element) {
+        if (actualDependencies == null)
+            return Stream.empty();
+        return actualDependencies.stream()
+            .filter(it -> it.getKey().equals(element.getQualifiedName().toString()))
+            .map(it -> processingEnv.getElementUtils().getPackageElement(it.getValue()));
     }
 
     // we do more casts than strictly necessary to document what's happening
