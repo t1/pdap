@@ -21,10 +21,6 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         note("process annotations " + annotations);
         for (Element element : roundEnv.getRootElements()) {
-            if (element.getAnnotation(A.class) != null && element.getAnnotation(B.class) == null) {
-                error("Annotation A must be accompanied by annotation B", element);
-            }
-
             other("process " + element.getKind() + " : " + element, element);
             if (element.getKind() == ElementKind.PACKAGE)
                 continue;

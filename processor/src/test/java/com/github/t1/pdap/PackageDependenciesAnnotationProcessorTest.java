@@ -90,30 +90,6 @@ class PackageDependenciesAnnotationProcessorTest {
             error("/FailAnnotationProcessing.java", 1, 1, 18, 1, 2, "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
     }
 
-    @Test void shouldSucceedAWithB() {
-        List<DiagnosticMatch> diagnostics = compile("SucceedAnnotationProcessing", "" +
-            "import com.github.t1.pdap.A;\n" +
-            "import com.github.t1.pdap.B;\n" +
-            "\n" +
-            "@A @B\n" +
-            "public class SucceedAnnotationProcessing {\n" +
-            "}");
-
-        assertThat(errors(diagnostics)).isEmpty();
-    }
-
-    @Test void shouldFailAWithoutB() {
-        List<DiagnosticMatch> diagnostics = compile(
-            "FailAnnotationProcessing", "" +
-                "import com.github.t1.pdap.A;\n" +
-                "\n" +
-                "@A\n" +
-                "public class FailAnnotationProcessing {\n" +
-                "}");
-
-        assertThat(errors(diagnostics)).containsExactly(error(null, -1, -1, -1, -1, -1, "compiler.err.proc.messager", "Annotation A must be accompanied by annotation B"));
-    }
-
     @Test void shouldSucceedAllowedDependency() {
         List<DiagnosticMatch> diagnostics = compile(Map.of(
             "com/github/t1/pdap/package-info", "" +
