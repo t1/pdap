@@ -19,7 +19,7 @@ import static javax.lang.model.SourceVersion.RELEASE_11;
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        note("process annotations " + annotations);
+        other("process annotations " + annotations);
         for (Element element : roundEnv.getRootElements()) {
             other("process " + element.getKind() + " : " + element, element);
             if (element.getKind() == ElementKind.PACKAGE)
@@ -32,7 +32,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             DependsUpon dependsUpon = findDependsUpon(element);
             if (dependsUpon != null) {
                 List<String> packages = asList(dependsUpon.value());
-                warning("can depend upon " + packages, element);
+                note("can depend upon " + packages, element);
                 for (String dependency : packages) {
                     PackageElement dependencyElement = processingEnv.getElementUtils().getPackageElement(dependency);
                     if (dependencyElement == null) {
@@ -41,7 +41,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 }
             }
         }
-        note("process end");
+        other("process end");
         Iterator<? extends TypeElement> iterator = annotations.iterator();
         return iterator.hasNext() && iterator.next().getQualifiedName().toString().equals(DependsUpon.class.getName());
     }
