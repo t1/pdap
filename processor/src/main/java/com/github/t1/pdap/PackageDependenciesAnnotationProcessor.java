@@ -9,8 +9,10 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -27,6 +29,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         other("process annotations " + annotations);
         Set<Entry<String, String>> dependencyErrors = new LinkedHashSet<>();
+        Map<PackageElement, List<PackageElement>> unusedDependencies = new HashMap<>();
         for (Element element : roundEnv.getRootElements()) {
             other("process " + element.getKind() + " : " + element, element);
             if (element.getKind() == ElementKind.PACKAGE)
@@ -37,7 +40,9 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 other("-> " + enclosedElement.getKind() + ": " + enclosedElement);
             }
             List<PackageElement> allowedDependencies = allowedDependencies(element);
+            List<PackageElement> unused = unusedDependencies.computeIfAbsent(packageElement, e -> new ArrayList<>(allowedDependencies));
             actualClassDependencies(packageElement).forEach(it -> {
+                unused.remove(it);
                 String source = packageElement.getQualifiedName().toString();
                 String target = it.getQualifiedName().toString();
                 if (allowedDependencies.contains(it)) {
@@ -48,6 +53,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             });
         }
         dependencyErrors.forEach(it -> error("Forbidden dependency from [" + it.getKey() + "] to [" + it.getValue() + "]"));
+        unusedDependencies.forEach((from, tos) -> tos.forEach(to -> warning("Unused dependency from [" + from + "] to [" + to + "]")));
         other("process end");
         return true;
     }
@@ -59,6 +65,8 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             List<String> packages = asList(dependsUpon.value());
             note("can depend upon " + packages, element);
             for (String dependency : packages) {
+                if (dependency.isEmpty())
+                    continue;
                 PackageElement dependencyElement = processingEnv.getElementUtils().getPackageElement(dependency);
                 if (dependencyElement == null) {
                     error("Invalid `DependsOn`: Unknown package [" + dependency + "].", element);
@@ -85,7 +93,6 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             case PACKAGE:
                 return element.getAnnotation(DependsUpon.class);
             case ENUM:
-                break;
             case CLASS:
                 return findDependsUpon((PackageElement) element.getEnclosingElement());
             case ANNOTATION_TYPE:

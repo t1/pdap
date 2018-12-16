@@ -45,7 +45,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldSucceedAllowedDependency() {
+    @Test void shouldCompileClassWithAllowedDependency() {
         pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
         compile(Map.of(
             "source/package-info", "" +
@@ -70,11 +70,60 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
+    @Test void shouldWarnAboutClassWithUnusedDependency() {
+        compile(Map.of(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "}\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n"));
+
+        expect(
+            warning("Unused dependency from [source] to [target]")
+        );
+    }
+
+    @Test void shouldCompileEnumWithAllowedDependency() {
+        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        compile(Map.of(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "enum Source {\n" +
+                "    FOO;\n" +
+                "    private Target target;\n" +
+                "}\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n"));
+
+        expect();
+    }
+
     @Test void shouldFailWithTwoDisallowedDependencies() {
         pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target1"), new SimpleEntry<>("source", "target2"));
         compile(Map.of(
             "source/package-info", "" +
-                "@DependsUpon(\"\")\n" +
+                "@DependsUpon()\n" +
                 "package source;\n" +
                 "\n" +
                 "import com.github.t1.pdap.DependsUpon;\n",
