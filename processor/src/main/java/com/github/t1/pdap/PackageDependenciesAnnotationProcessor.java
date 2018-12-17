@@ -11,13 +11,11 @@ import javax.lang.model.element.TypeElement;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
@@ -26,7 +24,7 @@ import static javax.lang.model.SourceVersion.RELEASE_11;
 @SupportedSourceVersion(RELEASE_11)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
-    Set<Entry<CharSequence, CharSequence>> actualClassDependencies = new HashSet<>();
+    private DependenciesScanner dependenciesScanner = new DependenciesScanner();
     private Map<Name, List<PackageElement>> actualPackageDependencies = new HashMap<>();
 
     @Override
@@ -56,8 +54,8 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 }
             });
         }
-        dependencyErrors.forEach(it -> error("Forbidden dependency from [" + it.getKey() + "] to [" + it.getValue() + "]"));
-        unusedDependencies.forEach((from, tos) -> tos.forEach(to -> warning("Unused dependency from [" + from + "] to [" + to + "]")));
+        dependencyErrors.forEach(it -> error("Forbidden dependency [" + it.getKey() + "] -> [" + it.getValue() + "]"));
+        unusedDependencies.forEach((from, tos) -> tos.forEach(to -> warning("Unused dependency [" + from + "] -> [" + to + "]")));
         other("process end");
         return true;
     }
@@ -71,7 +69,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             for (String dependency : packages) {
                 if (dependency.isEmpty())
                     continue;
-                PackageElement dependencyElement = processingEnv.getElementUtils().getPackageElement(dependency);
+                PackageElement dependencyElement = getElementUtils().getPackageElement(dependency);
                 if (dependencyElement == null) {
                     error("Invalid `DependsOn`: Unknown package [" + dependency + "].", element);
                 } else {
@@ -84,16 +82,10 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
 
     private List<PackageElement> actualPackageDependencies(TypeElement element) {
         return actualPackageDependencies.computeIfAbsent(element.getQualifiedName(), name ->
-            actualClassDependencies(element)
-                .map(it -> (PackageElement) processingEnv.getElementUtils().getTypeElement(it).getEnclosingElement())
+            dependenciesScanner.scan(element.getQualifiedName().toString())
+                .map(it -> (PackageElement) getElementUtils().getTypeElement(it).getEnclosingElement())
                 .distinct()
                 .collect(toList()));
-    }
-
-    private Stream<CharSequence> actualClassDependencies(TypeElement element) {
-        return actualClassDependencies.stream()
-            .filter(it -> element.getQualifiedName().contentEquals(it.getKey()))
-            .map(Entry::getValue);
     }
 
     private DependsUpon findDependsUpon(Element element) {

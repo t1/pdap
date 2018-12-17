@@ -8,6 +8,8 @@ import java.util.Set;
 
 class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProcessorTest {
     @Test void shouldSucceedWithoutAnnotations() {
+        DependenciesScanner.mockClassDependencies = Set.of();
+
         compile("SucceedAnnotationProcessing", "" +
             "public class SucceedAnnotationProcessing {\n" +
             "}");
@@ -16,6 +18,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailToCompileWithUnknownSymbol() {
+        DependenciesScanner.mockClassDependencies = Set.of();
+
         compile(
             "FailAnnotationProcessing", "" +
                 "@UnknownAnnotation\n" +
@@ -28,6 +32,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailInvalidDependsUpon() {
+        DependenciesScanner.mockClassDependencies = Set.of();
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon(\"undefined\")\n" +
@@ -46,7 +52,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileClassWithAllowedDependency() {
-        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
 
         compile(Map.of(
             "source/package-info", "" +
@@ -72,6 +78,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldWarnAboutClassWithUnusedDependency() {
+        DependenciesScanner.mockClassDependencies = Set.of();
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -90,12 +98,12 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n"));
 
         expect(
-            warning("Unused dependency from [source] to [target]")
+            warning("Unused dependency [source] -> [target]")
         );
     }
 
     @Test void shouldCompileEnumWithAllowedDependency() {
-        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
 
         compile(Map.of(
             "source/package-info", "" +
@@ -122,7 +130,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileAnnotationWithAllowedDependency() {
-        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
 
         compile(Map.of(
             "source/package-info", "" +
@@ -148,7 +156,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileInterfaceWithAllowedDependency() {
-        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
 
         compile(Map.of(
             "source/package-info", "" +
@@ -173,15 +181,16 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailWithTwoDisallowedDependencies() {
-        pdap.actualClassDependencies = Set.of(
+        DependenciesScanner.mockClassDependencies = Set.of(
             new SimpleEntry<>("source.Source", "target1.Target1a"),
             new SimpleEntry<>("source.Source", "target1.Target1b"),
-            new SimpleEntry<>("source.Source", "target2.Target2")
+            new SimpleEntry<>("source.Source", "target2.Target2"),
+            new SimpleEntry<>("source.Source", "target3.Target3")
         );
 
         compile(Map.of(
             "source/package-info", "" +
-                "@DependsUpon()\n" +
+                "@DependsUpon(\"target3\")\n" +
                 "package source;\n" +
                 "\n" +
                 "import com.github.t1.pdap.DependsUpon;\n",
@@ -191,11 +200,13 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "import target1.Target1a;\n" +
                 "import target1.Target1b;\n" +
                 "import target2.Target2;\n" +
+                "import target3.Target3;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target1a target1a;\n" +
                 "    private Target1b target1b;\n" +
                 "    private Target2 target2;\n" +
+                "    private Target3 target3;\n" +
                 "}\n",
             "target1/Target1a", "" +
                 "package target1;\n" +
@@ -211,11 +222,16 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target2;\n" +
                 "\n" +
                 "public class Target2 {\n" +
+                "}\n",
+            "target3/Target3", "" +
+                "package target3;\n" +
+                "\n" +
+                "public class Target3 {\n" +
                 "}\n"));
 
         expect(
-            error("Forbidden dependency from [source] to [target1]"),
-            error("Forbidden dependency from [source] to [target2]")
+            error("Forbidden dependency [source] -> [target1]"),
+            error("Forbidden dependency [source] -> [target2]")
         );
     }
 }

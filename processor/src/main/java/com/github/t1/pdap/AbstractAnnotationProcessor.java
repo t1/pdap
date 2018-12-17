@@ -2,6 +2,7 @@ package com.github.t1.pdap;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.lang.model.element.Element;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic.Kind;
 
 public abstract class AbstractAnnotationProcessor extends AbstractProcessor {
@@ -32,5 +33,10 @@ public abstract class AbstractAnnotationProcessor extends AbstractProcessor {
 
     private void print(Kind kind, String message, Element element) {
         processingEnv.getMessager().printMessage(kind, message);
+    }
+
+
+    protected Elements getElementUtils() {
+        return processingEnv.getElementUtils();
     }
 }

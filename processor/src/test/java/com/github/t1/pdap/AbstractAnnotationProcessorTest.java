@@ -14,7 +14,6 @@ import javax.tools.ToolProvider;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -46,7 +45,7 @@ public class AbstractAnnotationProcessorTest {
             this.lineNumber = diagnostic.getLineNumber();
             this.columnNumber = diagnostic.getColumnNumber();
             this.code = diagnostic.getCode();
-            this.message = diagnostic.getMessage(Locale.getDefault());
+            this.message = diagnostic.getMessage(null);
         }
     }
 
@@ -63,7 +62,7 @@ public class AbstractAnnotationProcessorTest {
 
     void compile(List<JavaFileObject> compilationUnits) {
         DiagnosticListener<JavaFileObject> diagnosticListener = diagnostic -> {
-            System.out.println(diagnostic.getKind() + " [" + diagnostic.getCode() + "] " + diagnostic.getMessage(Locale.getDefault()));
+            System.out.println(diagnostic.getKind() + " [" + diagnostic.getCode() + "] " + diagnostic.getMessage(null));
             diagnostics.add(new DiagnosticMatch(diagnostic));
         };
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
