@@ -46,7 +46,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileClassWithAllowedDependency() {
-        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -94,7 +95,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileEnumWithAllowedDependency() {
-        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -120,7 +122,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileAnnotationWithAllowedDependency() {
-        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -145,7 +148,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileInterfaceWithAllowedDependency() {
-        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target"));
+        pdap.actualClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -169,7 +173,12 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailWithTwoDisallowedDependencies() {
-        pdap.actualDependencies = Set.of(new SimpleEntry<>("source", "target1"), new SimpleEntry<>("source", "target2"));
+        pdap.actualClassDependencies = Set.of(
+            new SimpleEntry<>("source.Source", "target1.Target1a"),
+            new SimpleEntry<>("source.Source", "target1.Target1b"),
+            new SimpleEntry<>("source.Source", "target2.Target2")
+        );
+
         compile(Map.of(
             "source/package-info", "" +
                 "@DependsUpon()\n" +

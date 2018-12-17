@@ -5,11 +5,13 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -18,17 +20,19 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
 import static javax.lang.model.SourceVersion.RELEASE_11;
 
 @SupportedSourceVersion(RELEASE_11)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
-    Set<Entry<String, String>> actualDependencies;
+    Set<Entry<CharSequence, CharSequence>> actualClassDependencies = new HashSet<>();
+    private Map<Name, List<PackageElement>> actualPackageDependencies = new HashMap<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         other("process annotations " + annotations);
-        Set<Entry<String, String>> dependencyErrors = new LinkedHashSet<>();
+        Set<Entry<CharSequence, CharSequence>> dependencyErrors = new LinkedHashSet<>();
         Map<PackageElement, List<PackageElement>> unusedDependencies = new HashMap<>();
         for (Element element : roundEnv.getRootElements()) {
             other("process " + element.getKind() + " : " + element, element);
@@ -41,10 +45,10 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             }
             List<PackageElement> allowedDependencies = allowedDependencies(element);
             List<PackageElement> unused = unusedDependencies.computeIfAbsent(packageElement, e -> new ArrayList<>(allowedDependencies));
-            actualClassDependencies(packageElement).forEach(it -> {
+            actualPackageDependencies((TypeElement) element).forEach(it -> {
                 unused.remove(it);
-                String source = packageElement.getQualifiedName().toString();
-                String target = it.getQualifiedName().toString();
+                CharSequence source = packageElement.getQualifiedName();
+                CharSequence target = it.getQualifiedName();
                 if (allowedDependencies.contains(it)) {
                     other("allowed dependency [" + source + "] to [" + target + "]");
                 } else {
@@ -78,16 +82,20 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         return allowedDependencies;
     }
 
-    private Stream<PackageElement> actualClassDependencies(PackageElement element) {
-        if (actualDependencies == null)
-            return Stream.empty();
-        return actualDependencies.stream()
-            .filter(it -> it.getKey().equals(element.getQualifiedName().toString()))
-            .map(it -> processingEnv.getElementUtils().getPackageElement(it.getValue()));
+    private List<PackageElement> actualPackageDependencies(TypeElement element) {
+        return actualPackageDependencies.computeIfAbsent(element.getQualifiedName(), name ->
+            actualClassDependencies(element)
+                .map(it -> (PackageElement) processingEnv.getElementUtils().getTypeElement(it).getEnclosingElement())
+                .distinct()
+                .collect(toList()));
     }
 
-    // we do more casts than strictly necessary to document what's happening
-    @SuppressWarnings("RedundantCast")
+    private Stream<CharSequence> actualClassDependencies(TypeElement element) {
+        return actualClassDependencies.stream()
+            .filter(it -> element.getQualifiedName().contentEquals(it.getKey()))
+            .map(Entry::getValue);
+    }
+
     private DependsUpon findDependsUpon(Element element) {
         switch (element.getKind()) {
             case PACKAGE:
@@ -96,9 +104,8 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             case CLASS:
             case ANNOTATION_TYPE:
             case INTERFACE:
-                return findDependsUpon((PackageElement) element.getEnclosingElement());
+                return findDependsUpon(/* PackageElement */ element.getEnclosingElement());
         }
-        error("don't know how to find DependsUpon for " + element.getKind() + " " + element);
-        return null;
+        throw new UnsupportedOperationException("don't know how to find DependsUpon for " + element.getKind() + " " + element);
     }
 }
