@@ -1,9 +1,5 @@
 package com.github.t1.pdap;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-
 import javax.tools.Diagnostic;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.DiagnosticListener;
@@ -14,17 +10,16 @@ import javax.tools.ToolProvider;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class AbstractAnnotationProcessorTest {
-    @Data
-    @Builder
-    @AllArgsConstructor
+@SuppressWarnings({"SameParameterValue", "unused", "WeakerAccess"})
+class AbstractAnnotationProcessorTest {
     static class DiagnosticMatch {
         private Kind kind;
         private String source;
@@ -37,27 +32,128 @@ public class AbstractAnnotationProcessorTest {
         private String message;
 
         DiagnosticMatch(Diagnostic<? extends JavaFileObject> diagnostic) {
-            this.kind = diagnostic.getKind();
-            this.source = (diagnostic.getSource() == null) ? null : diagnostic.getSource().getName();
-            this.position = diagnostic.getPosition();
-            this.startPosition = diagnostic.getStartPosition();
-            this.endPosition = diagnostic.getEndPosition();
-            this.lineNumber = diagnostic.getLineNumber();
-            this.columnNumber = diagnostic.getColumnNumber();
-            this.code = diagnostic.getCode();
-            this.message = diagnostic.getMessage(null);
+            this(diagnostic.getKind(),
+                (diagnostic.getSource() == null) ? null : diagnostic.getSource().getName(),
+                diagnostic.getPosition(),
+                diagnostic.getStartPosition(),
+                diagnostic.getEndPosition(),
+                diagnostic.getLineNumber(),
+                diagnostic.getColumnNumber(),
+                diagnostic.getCode(),
+                diagnostic.getMessage(null));
         }
+
+        //<editor-fold desc="Description">
+        DiagnosticMatch(Kind kind, String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
+            this.kind = kind;
+            this.source = source;
+            this.position = position;
+            this.startPosition = startPosition;
+            this.endPosition = endPosition;
+            this.lineNumber = lineNumber;
+            this.columnNumber = columnNumber;
+            this.code = code;
+            this.message = message;
+        }
+
+        public boolean equals(final Object o) {
+            if (o == this)
+                return true;
+            if (!(o instanceof DiagnosticMatch))
+                return false;
+            final DiagnosticMatch other = (DiagnosticMatch) o;
+            if (!other.canEqual(this))
+                return false;
+            final Object this$kind = this.kind;
+            final Object other$kind = other.kind;
+            if (!Objects.equals(this$kind, other$kind))
+                return false;
+            final Object this$source = this.source;
+            final Object other$source = other.source;
+            if (!Objects.equals(this$source, other$source))
+                return false;
+            if (this.position != other.position)
+                return false;
+            if (this.startPosition != other.startPosition)
+                return false;
+            if (this.endPosition != other.endPosition)
+                return false;
+            if (this.lineNumber != other.lineNumber)
+                return false;
+            if (this.columnNumber != other.columnNumber)
+                return false;
+            final Object this$code = this.code;
+            final Object other$code = other.code;
+            if (!Objects.equals(this$code, other$code))
+                return false;
+            final Object this$message = this.message;
+            final Object other$message = other.message;
+            return Objects.equals(this$message, other$message);
+        }
+
+        boolean canEqual(final Object other) {return other instanceof DiagnosticMatch;}
+
+        public int hashCode() {
+            final int PRIME = 59;
+            int result = 1;
+            final Object $kind = this.kind;
+            result = result * PRIME + ($kind == null ? 43 : $kind.hashCode());
+            final Object $source = this.source;
+            result = result * PRIME + ($source == null ? 43 : $source.hashCode());
+            final long $position = this.position;
+            result = result * PRIME + (int) ($position >>> 32 ^ $position);
+            final long $startPosition = this.startPosition;
+            result = result * PRIME + (int) ($startPosition >>> 32 ^ $startPosition);
+            final long $endPosition = this.endPosition;
+            result = result * PRIME + (int) ($endPosition >>> 32 ^ $endPosition);
+            final long $lineNumber = this.lineNumber;
+            result = result * PRIME + (int) ($lineNumber >>> 32 ^ $lineNumber);
+            final long $columnNumber = this.columnNumber;
+            result = result * PRIME + (int) ($columnNumber >>> 32 ^ $columnNumber);
+            final Object $code = this.code;
+            result = result * PRIME + ($code == null ? 43 : $code.hashCode());
+            final Object $message = this.message;
+            result = result * PRIME + ($message == null ? 43 : $message.hashCode());
+            return result;
+        }
+
+        public String toString() {return "AbstractAnnotationProcessorTest.DiagnosticMatch(kind=" + this.kind + ", source=" + this.source + ", position=" + this.position + ", startPosition=" + this.startPosition + ", endPosition=" + this.endPosition + ", lineNumber=" + this.lineNumber + ", columnNumber=" + this.columnNumber + ", code=" + this.code + ", message=" + this.message + ")";}
+        //</editor-fold>
     }
 
     private final List<DiagnosticMatch> diagnostics = new ArrayList<>();
-    PackageDependenciesAnnotationProcessor pdap = new PackageDependenciesAnnotationProcessor();
+    private PackageDependenciesAnnotationProcessor pdap = new PackageDependenciesAnnotationProcessor();
 
-    void compile(String fileName, String source) { compile(Map.of(fileName, source)); }
+    void compile(String fileName, String source) { compile(singletonList(file(fileName, source))); }
 
-    void compile(Map<String, String> files) {
-        compile(files.entrySet().stream()
-            .map(entry -> new StringJavaFileObject(Paths.get(entry.getKey() + ".java"), entry.getValue()))
-            .collect(toList()));
+    void compile(String file1, String source1, String file2, String source2) {
+        compile(asList(file(file1, source1), file(file2, source2)));
+    }
+
+    void compile(String file1, String source1, String file2, String source2, String file3, String source3) {
+        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3)));
+    }
+
+    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
+                 String file4, String source4) {
+        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3),
+            file(file4, source4)));
+    }
+
+    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
+                 String file4, String source4, String file5, String source5) {
+        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3),
+            file(file4, source4), file(file5, source5)));
+    }
+
+    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
+                 String file4, String source4, String file5, String source5, String file6, String source6) {
+        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3),
+            file(file4, source4), file(file5, source5), file(file6, source6)));
+    }
+
+    private StringJavaFileObject file(String file1, String source1) {
+        return new StringJavaFileObject(Paths.get(file1 + ".java"), source1);
     }
 
     void compile(List<JavaFileObject> compilationUnits) {
@@ -66,10 +162,10 @@ public class AbstractAnnotationProcessorTest {
             diagnostics.add(new DiagnosticMatch(diagnostic));
         };
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        NoOutputFileManager fileManager = new NoOutputFileManager(compiler.getStandardFileManager(null, null, null));
+        NoOutputFileManager fileManager = new NoOutputFileManager(compiler.getStandardFileManager(diagnosticListener, null, null));
 
-        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, List.of("-Xlint:all"), null, compilationUnits);
-        task.setProcessors(List.of(pdap));
+        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, singletonList("-Xlint:all"), null, compilationUnits);
+        task.setProcessors(singletonList(pdap));
         task.call();
     }
 
@@ -105,7 +201,7 @@ public class AbstractAnnotationProcessorTest {
         return matches;
     }
 
-    private boolean is(DiagnosticMatch diagnostic, Kind... kind) { return asList(kind).contains(diagnostic.getKind()); }
+    private boolean is(DiagnosticMatch diagnostic, Kind... kind) { return asList(kind).contains(diagnostic.kind); }
 
 
     DiagnosticMatch error(String message) {

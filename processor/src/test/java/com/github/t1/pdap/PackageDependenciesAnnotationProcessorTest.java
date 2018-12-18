@@ -3,12 +3,15 @@ package com.github.t1.pdap;
 import org.junit.jupiter.api.Test;
 
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Map;
-import java.util.Set;
+import java.util.HashSet;
+
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.singleton;
 
 class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProcessorTest {
     @Test void shouldSucceedWithoutAnnotations() {
-        DependenciesScanner.mockClassDependencies = Set.of();
+        DependenciesScanner.mockClassDependencies = emptySet();
 
         compile("SucceedAnnotationProcessing", "" +
             "public class SucceedAnnotationProcessing {\n" +
@@ -18,7 +21,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailToCompileWithUnknownSymbol() {
-        DependenciesScanner.mockClassDependencies = Set.of();
+        DependenciesScanner.mockClassDependencies = emptySet();
 
         compile(
             "FailAnnotationProcessing", "" +
@@ -32,9 +35,9 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailInvalidDependsUpon() {
-        DependenciesScanner.mockClassDependencies = Set.of();
+        DependenciesScanner.mockClassDependencies = emptySet();
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"undefined\")\n" +
                 "package source;\n" +
@@ -44,7 +47,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package source;\n" +
                 "\n" +
                 "public class Source {\n" +
-                "}\n"));
+                "}\n");
 
         expect(
             error("Invalid `DependsOn`: Unknown package [undefined].")
@@ -52,9 +55,9 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileClassWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
                 "package source;\n" +
@@ -72,15 +75,15 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target;\n" +
                 "\n" +
                 "public class Target {\n" +
-                "}\n"));
+                "}\n");
 
         expect();
     }
 
     @Test void shouldWarnAboutClassWithUnusedDependency() {
-        DependenciesScanner.mockClassDependencies = Set.of();
+        DependenciesScanner.mockClassDependencies = emptySet();
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
                 "package source;\n" +
@@ -95,7 +98,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target;\n" +
                 "\n" +
                 "public class Target {\n" +
-                "}\n"));
+                "}\n");
 
         expect(
             warning("Unused dependency [source] -> [target]")
@@ -103,9 +106,9 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileEnumWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
                 "package source;\n" +
@@ -124,15 +127,15 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target;\n" +
                 "\n" +
                 "public class Target {\n" +
-                "}\n"));
+                "}\n");
 
         expect();
     }
 
     @Test void shouldCompileAnnotationWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
                 "package source;\n" +
@@ -150,15 +153,15 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target;\n" +
                 "\n" +
                 "public class Target {\n" +
-                "}\n"));
+                "}\n");
 
         expect();
     }
 
     @Test void shouldCompileInterfaceWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = Set.of(new SimpleEntry<>("source.Source", "target.Target"));
+        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
                 "package source;\n" +
@@ -175,20 +178,20 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target;\n" +
                 "\n" +
                 "public interface Target {\n" +
-                "}\n"));
+                "}\n");
 
         expect();
     }
 
     @Test void shouldFailWithTwoDisallowedDependencies() {
-        DependenciesScanner.mockClassDependencies = Set.of(
+        DependenciesScanner.mockClassDependencies = new HashSet<>(asList(
             new SimpleEntry<>("source.Source", "target1.Target1a"),
             new SimpleEntry<>("source.Source", "target1.Target1b"),
             new SimpleEntry<>("source.Source", "target2.Target2"),
             new SimpleEntry<>("source.Source", "target3.Target3")
-        );
+        ));
 
-        compile(Map.of(
+        compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target3\")\n" +
                 "package source;\n" +
@@ -227,7 +230,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "package target3;\n" +
                 "\n" +
                 "public class Target3 {\n" +
-                "}\n"));
+                "}\n");
 
         expect(
             error("Forbidden dependency [source] -> [target1]"),

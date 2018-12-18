@@ -8,6 +8,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import java.io.InputStream;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,12 +20,17 @@ import java.util.Set;
 
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
-import static javax.lang.model.SourceVersion.RELEASE_11;
+import static javax.lang.model.SourceVersion.RELEASE_8;
 
-@SupportedSourceVersion(RELEASE_11)
+@SupportedSourceVersion(RELEASE_8)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
-    private DependenciesScanner dependenciesScanner = new DependenciesScanner();
+    private DependenciesScanner dependenciesScanner = new DependenciesScanner(this::resolve);
+
+    private InputStream resolve(CharSequence name) {
+        return null;
+    }
+
     private Map<Name, List<PackageElement>> actualPackageDependencies = new HashMap<>();
 
     @Override
@@ -83,9 +89,13 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
     private List<PackageElement> actualPackageDependencies(TypeElement element) {
         return actualPackageDependencies.computeIfAbsent(element.getQualifiedName(), name ->
             dependenciesScanner.scan(element.getQualifiedName().toString())
-                .map(it -> (PackageElement) getElementUtils().getTypeElement(it).getEnclosingElement())
+                .map(this::packageOf)
                 .distinct()
                 .collect(toList()));
+    }
+
+    private PackageElement packageOf(CharSequence it) {
+        return (PackageElement) getElementUtils().getTypeElement(it).getEnclosingElement();
     }
 
     private DependsUpon findDependsUpon(Element element) {
