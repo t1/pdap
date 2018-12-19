@@ -3,6 +3,27 @@ package com.github.t1.pdap;
 import org.junit.jupiter.api.Test;
 
 class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProcessorTest {
+    private void compileSource(String source) {
+        compile(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                source,
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public interface Target {\n" +
+                "}\n");
+    }
+
     @Test void shouldSucceedWithoutAnnotations() {
         compile("SucceedAnnotationProcessing", "" +
             "public class SucceedAnnotationProcessing {\n" +
@@ -69,7 +90,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldFailToCompileClassWithDependsOnSelf() {
+    @Test void shouldFailToCompileDependencyOnSelf() {
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"source\")\n" +
@@ -88,27 +109,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldWarnAboutUnusedDependency() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "public class Source {\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+        compileSource("package source;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "" +
+            "}\n");
 
         expect(
             warning("Unused dependency [source] -> [target]")
@@ -116,117 +121,53 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileClassWithAllowedDependency() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "import target.Target;\n" +
-                "\n" +
-                "public class Source {\n" +
-                "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+        compileSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private Target target;\n" +
+            "}\n");
 
         expect();
     }
 
     @Test void shouldCompileEnumWithAllowedDependency() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "import target.Target;\n" +
-                "\n" +
-                "enum Source {\n" +
-                "    FOO;\n" +
-                "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+        compileSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "enum Source {\n" +
+            "    FOO;\n" +
+            "    private Target target;\n" +
+            "}\n");
 
         expect();
     }
 
     @Test void shouldCompileAnnotationWithAllowedDependency() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "import target.Target;\n" +
-                "\n" +
-                "public @interface Source {\n" +
-                "    Class<Target> value();\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+        compileSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public @interface Source {\n" +
+            "    Class<Target> value();\n" +
+            "}\n");
 
         expect();
     }
 
     @Test void shouldCompileInterfaceWithAllowedDependency() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "import target.Target;\n" +
-                "\n" +
-                "public interface Source extends Target {\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public interface Target {\n" +
-                "}\n");
+        compileSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public interface Source extends Target {\n" +
+            "}\n");
 
         expect();
     }
@@ -280,28 +221,21 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileClassWithAllowedQualifiedDependencyField() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "public class Source {\n" +
-                "    private target.Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+        compileSource("package source;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private target.Target target;\n" +
+            "}\n");
+
+        expect();
+    }
+
+    @Test void shouldCompileClassWithAllowedQualifiedDependencyMethodReturnType() {
+        compileSource("package source;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private target.Target foo() { return null; }\n" +
+            "}\n");
 
         expect();
     }

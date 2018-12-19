@@ -7,6 +7,7 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCImport;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Pair;
@@ -112,11 +113,20 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 packages.add(((JCFieldAccess) tree.getQualifiedIdentifier()).sym.owner.name);
             }
 
+            /** field */
             @Override public void visitVarDef(JCVariableDecl tree) {
                 if (tree.getType() instanceof JCIdent)
                     packages.add(((JCIdent) tree.getType()).sym.owner.name);
                 else
                     packages.add(((JCFieldAccess) tree.getType()).sym.owner.name);
+            }
+
+            @Override public void visitMethodDef(JCMethodDecl tree) {
+                JCTree returnType = tree.getReturnType();
+                if (returnType != null) {
+                    if (tree.getReturnType() instanceof JCFieldAccess)
+                        packages.add(((JCFieldAccess) tree.getReturnType()).sym.owner.name);
+                }
             }
         });
         packages.remove(element.packge().name);
