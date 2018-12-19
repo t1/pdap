@@ -87,6 +87,34 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
+    @Test void shouldWarnAboutUnusedDependency() {
+        compile(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n");
+
+        expect(
+            warning("Unused dependency [source] -> [target]")
+        );
+    }
+
     @Test void shouldCompileClassWithAllowedDependency() {
         compile(
             "source/package-info", "" +
@@ -114,34 +142,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n");
 
         expect();
-    }
-
-    @Test void shouldWarnAboutClassWithUnusedDependency() {
-        compile(
-            "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                "public class Source {\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsUpon()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
-
-        expect(
-            warning("Unused dependency [source] -> [target]")
-        );
     }
 
     @Test void shouldCompileEnumWithAllowedDependency() {
@@ -277,5 +277,32 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             error("Forbidden dependency [source] -> [target1]"),
             error("Forbidden dependency [source] -> [target2]")
         );
+    }
+
+    @Test void shouldCompileClassWithAllowedQualifiedDependencyField() {
+        compile(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private target.Target target;\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n");
+
+        expect();
     }
 }

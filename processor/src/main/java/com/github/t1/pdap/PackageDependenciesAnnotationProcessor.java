@@ -4,6 +4,11 @@ import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
+import com.sun.tools.javac.tree.JCTree.JCIdent;
+import com.sun.tools.javac.tree.JCTree.JCImport;
+import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
+import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Pair;
 
 import javax.annotation.processing.RoundEnvironment;
@@ -16,13 +21,14 @@ import javax.lang.model.element.TypeElement;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.SourceVersion.RELEASE_11;
 
@@ -89,27 +95,39 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
 
     private List<PackageElement> actualPackageDependencies(TypeElement element) {
         return actualPackageDependencies.computeIfAbsent(element.getQualifiedName(), name ->
-            resolve(element.getQualifiedName().toString())
-                .map(this::packageOf)
-                .distinct()
-                .collect(toList()));
+            packagesDependenciesOf((ClassSymbol) element));
     }
 
-    private Stream<CharSequence> resolve(CharSequence name) {
+    private List<PackageElement> packagesDependenciesOf(ClassSymbol element) {
         final JavacElements elementUtils = (JavacElements) processingEnv.getElementUtils();
-        ClassSymbol element = elementUtils.getTypeElement(name);
         Pair<JCTree, JCCompilationUnit> tree = elementUtils.getTreeAndTopLevel(element, null, null);
         if (tree == null || tree.snd == null)
-            return Stream.empty();
+            return emptyList();
         JCCompilationUnit compilationUnit = tree.snd;
         if (compilationUnit.getSourceFile().getName().endsWith("package-info.java"))
-            return Stream.empty();
-        // TODO get not only the imports but also the qualified names used within the code
-        return compilationUnit.getImports().stream().map(jcImport -> jcImport.getQualifiedIdentifier().toString());
+            return emptyList();
+        Set<CharSequence> packages = new HashSet<>();
+        compilationUnit.accept(new TreeScanner() {
+            @Override public void visitImport(JCImport tree) {
+                packages.add(((JCFieldAccess) tree.getQualifiedIdentifier()).sym.owner.name);
+            }
+
+            @Override public void visitVarDef(JCVariableDecl tree) {
+                if (tree.getType() instanceof JCIdent)
+                    packages.add(((JCIdent) tree.getType()).sym.owner.name);
+                else
+                    packages.add(((JCFieldAccess) tree.getType()).sym.owner.name);
+            }
+        });
+        packages.remove(element.packge().name);
+        return packages.stream().map(this::toPackage).collect(toList());
     }
 
-    private PackageElement packageOf(CharSequence it) {
-        return (PackageElement) getElementUtils().getTypeElement(it).getEnclosingElement();
+    private PackageElement toPackage(CharSequence it) {
+        PackageElement packageElement = getElementUtils().getPackageElement(it);
+        if (packageElement == null)
+            throw new RuntimeException("package not found: [" + it + "]");
+        return packageElement;
     }
 
     private DependsUpon findDependsUpon(Element element) {
