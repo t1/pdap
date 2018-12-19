@@ -239,4 +239,14 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
         expect();
     }
+
+    @Test void shouldCompileClassWithAllowedQualifiedDependencyInMethodBody() {
+        compileSource("package source;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private void foo() { target.Target target = null; }\n" +
+            "}\n");
+
+        expect();
+    }
 }

@@ -111,14 +111,18 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         compilationUnit.accept(new TreeScanner() {
             @Override public void visitImport(JCImport tree) {
                 packages.add(((JCFieldAccess) tree.getQualifiedIdentifier()).sym.owner.name);
+                super.visitImport(tree);
             }
 
             /** field */
             @Override public void visitVarDef(JCVariableDecl tree) {
                 if (tree.getType() instanceof JCIdent)
                     packages.add(((JCIdent) tree.getType()).sym.owner.name);
+                else if (((JCFieldAccess) tree.getType()).sym == null)
+                    packages.add(((JCIdent) ((JCFieldAccess) tree.getType()).selected).getName());
                 else
                     packages.add(((JCFieldAccess) tree.getType()).sym.owner.name);
+                super.visitVarDef(tree);
             }
 
             @Override public void visitMethodDef(JCMethodDecl tree) {
@@ -127,6 +131,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                     if (tree.getReturnType() instanceof JCFieldAccess)
                         packages.add(((JCFieldAccess) tree.getReturnType()).sym.owner.name);
                 }
+                super.visitMethodDef(tree);
             }
         });
         packages.remove(element.packge().name);
