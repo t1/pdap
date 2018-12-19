@@ -164,7 +164,7 @@ class AbstractAnnotationProcessorTest {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         NoOutputFileManager fileManager = new NoOutputFileManager(compiler.getStandardFileManager(diagnosticListener, null, null));
 
-        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, singletonList("-Xlint:all"), null, compilationUnits);
+        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, asList("-Xlint:all", "-source", "8", "-target", "8"), null, compilationUnits);
         task.setProcessors(singletonList(pdap));
         task.call();
     }

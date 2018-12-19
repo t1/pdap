@@ -2,17 +2,8 @@ package com.github.t1.pdap;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.HashSet;
-
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptySet;
-import static java.util.Collections.singleton;
-
 class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProcessorTest {
     @Test void shouldSucceedWithoutAnnotations() {
-        DependenciesScanner.mockClassDependencies = emptySet();
-
         compile("SucceedAnnotationProcessing", "" +
             "public class SucceedAnnotationProcessing {\n" +
             "}");
@@ -21,8 +12,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailToCompileWithUnknownSymbol() {
-        DependenciesScanner.mockClassDependencies = emptySet();
-
         compile(
             "FailAnnotationProcessing", "" +
                 "@UnknownAnnotation\n" +
@@ -35,8 +24,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailInvalidDependsUpon() {
-        DependenciesScanner.mockClassDependencies = emptySet();
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"undefined\")\n" +
@@ -55,8 +42,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileClassWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -81,8 +66,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldWarnAboutClassWithUnusedDependency() {
-        DependenciesScanner.mockClassDependencies = emptySet();
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -106,8 +89,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileEnumWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -133,8 +114,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileAnnotationWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -159,8 +138,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldCompileInterfaceWithAllowedDependency() {
-        DependenciesScanner.mockClassDependencies = singleton(new SimpleEntry<>("source.Source", "target.Target"));
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target\")\n" +
@@ -184,13 +161,6 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     @Test void shouldFailWithTwoDisallowedDependencies() {
-        DependenciesScanner.mockClassDependencies = new HashSet<>(asList(
-            new SimpleEntry<>("source.Source", "target1.Target1a"),
-            new SimpleEntry<>("source.Source", "target1.Target1b"),
-            new SimpleEntry<>("source.Source", "target2.Target2"),
-            new SimpleEntry<>("source.Source", "target3.Target3")
-        ));
-
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target3\")\n" +
