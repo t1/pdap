@@ -26,9 +26,10 @@ import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
+import static javax.lang.model.SourceVersion.RELEASE_11;
 import static javax.lang.model.SourceVersion.RELEASE_8;
 
-@SupportedSourceVersion(RELEASE_8)
+@SupportedSourceVersion(RELEASE_11)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
     private Map<Name, List<PackageElement>> actualPackageDependencies = new HashMap<>();
