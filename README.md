@@ -10,7 +10,7 @@ There are tools to check your dependencies, but when exactly do you use them?
 And do you really check the dependencies of a project with more than, e.g., 30 packages?
 
 This little annotation processor comes to your rescue:
-Just add a dependency to `com.github.t1:package.dependencies.annotation.processor:1.0.0-SNAPSHOT`
+Just add a dependency to `com.github.t1:package.dependencies.annotation.processor`
 and annotate your packages (i.e. the `package-info.java` files introduced in Java 1.6) with `@DependsOn`, e.g.:
 
 ```java
@@ -36,12 +36,16 @@ If you have a dependency that is not allowed, it will report it as a compilation
 and if you have allowed a dependency that is not used, it will report it as a warning.
 
 Note that packages without a `@DependsOn` annotation won't be checked at all,
-which allows for a step-by-step introduction of dependency checking (you *will* find violations ;)
+which allows for a step-by-step introduction of dependency checking (and you *will* find violations ;)
 
+# Eclipse
 
-# Status
+I haven't been using Eclipse for several years now, but it probably won't work with the Eclipse compiler,
+as we access the Abstract Syntax Tree from the Java compiler, and Eclipse is not compatible with that.
 
-Alpha: There are still some features missing that are necessary to use in production:
+# Status: Alpha
+
+There are still some features missing that are necessary to use in production:
 
 * Get not only the imports but also the qualified names used within the code
 * Super-Package-DependsOn: Define `DependsOn` on super packages, so all nested packages share these dependencies.
@@ -53,5 +57,6 @@ Some things that would be really cool to add:
 
 * Report dependency cycles.
 * Optionally report packages without `DependsOn`.
-* Wildcards: `DependsOn("**.controller")` allows dependencies on all packages ending with `.controller`.
+* Wildcards: `DependsOn("**.controller")` allows dependencies on all packages ending with `.controller`,
+  and `@DependsOn("javax.ws.rs+")` allows dependencies on `javax.ws.rs` and all subpackages.
 * `parent`-Variable: `DependsOn("${parent}.controller")` allows dependencies on a sibling `controller` package.

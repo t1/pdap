@@ -10,7 +10,6 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
@@ -24,10 +23,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.SourceVersion.RELEASE_11;
-import static javax.lang.model.SourceVersion.RELEASE_8;
 
 @SupportedSourceVersion(RELEASE_11)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
@@ -38,52 +35,53 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver())
             return false;
-        other("process annotations " + annotations);
         Set<Entry<CharSequence, CharSequence>> dependencyErrors = new LinkedHashSet<>();
         Map<PackageElement, List<PackageElement>> unusedDependencies = new HashMap<>();
         for (Element element : roundEnv.getRootElements()) {
-            other("process " + element.getKind() + " : " + element, element);
-            if (element.getKind() == ElementKind.PACKAGE)
+            if (!isType(element))
                 continue;
+            TypeElement typeElement = (TypeElement) element;
             PackageElement packageElement = (PackageElement) element.getEnclosingElement();
-            other("# " + packageElement.getQualifiedName());
-            for (Element enclosedElement : packageElement.getEnclosedElements()) {
-                other("-> " + enclosedElement.getKind() + ": " + enclosedElement);
-            }
-            List<PackageElement> allowedDependencies = allowedDependencies(element);
+            List<PackageElement> allowedDependencies = allowedDependencies(typeElement);
+            if (allowedDependencies == null)
+                continue;
             List<PackageElement> unused = unusedDependencies.computeIfAbsent(packageElement, e -> new ArrayList<>(allowedDependencies));
-            actualPackageDependencies((TypeElement) element).forEach(it -> {
+            actualPackageDependencies(typeElement).forEach(it -> {
                 unused.remove(it);
                 CharSequence source = packageElement.getQualifiedName();
                 CharSequence target = it.getQualifiedName();
-                if (allowedDependencies.contains(it)) {
-                    other("allowed dependency [" + source + "] to [" + target + "]");
-                } else {
+                if (!allowedDependencies.contains(it)) {
                     dependencyErrors.add(new SimpleEntry<>(source, target));
                 }
             });
+            if (unused.remove(packageElement)) {
+                error("Cyclic dependency declared: [" + packageElement.getQualifiedName() + "] -> [" + packageElement.getQualifiedName() + "]");
+            }
         }
         dependencyErrors.forEach(it -> error("Forbidden dependency [" + it.getKey() + "] -> [" + it.getValue() + "]"));
         unusedDependencies.forEach((from, tos) -> tos.forEach(to -> warning("Unused dependency [" + from + "] -> [" + to + "]")));
-        other("process end");
         return true;
     }
 
-    private List<PackageElement> allowedDependencies(Element element) {
+    private boolean isType(Element element) {
+        return element.getKind().isClass() || element.getKind().isInterface();
+    }
+
+    private List<PackageElement> allowedDependencies(TypeElement element) {
         List<PackageElement> allowedDependencies = new ArrayList<>();
         DependsUpon dependsUpon = findDependsUpon(element);
-        if (dependsUpon != null) {
-            List<String> packages = asList(dependsUpon.value());
-            note("can depend upon " + packages, element);
-            for (String dependency : packages) {
-                if (dependency.isEmpty())
-                    continue;
-                PackageElement dependencyElement = getElementUtils().getPackageElement(dependency);
-                if (dependencyElement == null) {
-                    error("Invalid `DependsOn`: Unknown package [" + dependency + "].", element);
-                } else {
-                    allowedDependencies.add(dependencyElement);
-                }
+        if (dependsUpon == null) {
+            note("no @DependsUpon annotation on [" + element + "]");
+            return null;
+        }
+        for (String dependency : dependsUpon.value()) {
+            if (dependency.isEmpty())
+                continue;
+            PackageElement dependencyElement = getElementUtils().getPackageElement(dependency);
+            if (dependencyElement == null) {
+                error("Invalid `DependsOn`: Unknown package [" + dependency + "].", element);
+            } else {
+                allowedDependencies.add(dependencyElement);
             }
         }
         return allowedDependencies;

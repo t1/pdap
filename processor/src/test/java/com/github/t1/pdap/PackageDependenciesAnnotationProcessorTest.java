@@ -41,6 +41,52 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
+    @Test void shouldCompileClassWithoutDependsOn() {
+        compile(
+            "source/package-info", "" +
+                "package source;",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Target target;\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n");
+
+        expect(
+            note("no @DependsUpon annotation on [source.Source]")
+        );
+    }
+
+    @Test void shouldFailToCompileClassWithDependsOnSelf() {
+        compile(
+            "source/package-info", "" +
+                "@DependsUpon(\"source\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "}\n");
+
+        expect(
+            error("Cyclic dependency declared: [source] -> [source]")
+        );
+    }
+
     @Test void shouldCompileClassWithAllowedDependency() {
         compile(
             "source/package-info", "" +
@@ -56,6 +102,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "public class Source {\n" +
                 "    private Target target;\n" +
                 "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -77,6 +128,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "\n" +
                 "public class Source {\n" +
                 "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -104,6 +160,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "    FOO;\n" +
                 "    private Target target;\n" +
                 "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -128,6 +189,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "public @interface Source {\n" +
                 "    Class<Target> value();\n" +
                 "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -151,6 +217,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "\n" +
                 "public interface Source extends Target {\n" +
                 "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
