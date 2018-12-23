@@ -1,5 +1,6 @@
 package com.github.t1.pdap;
 
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
@@ -8,6 +9,8 @@ import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCImport;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
+import com.sun.tools.javac.tree.JCTree.JCNewClass;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Pair;
@@ -31,9 +34,9 @@ import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
-import static javax.lang.model.SourceVersion.RELEASE_11;
+import static javax.lang.model.SourceVersion.RELEASE_8;
 
-@SupportedSourceVersion(RELEASE_11)
+@SupportedSourceVersion(RELEASE_8)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
     private Map<Name, List<PackageElement>> actualPackageDependencies = new HashMap<>();
@@ -109,19 +112,34 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             return emptyList();
         Set<CharSequence> packages = new HashSet<>();
         compilationUnit.accept(new TreeScanner() {
+            private void addOwner(Symbol symbol) { addSymbol(symbol.owner); }
+
+            private void addSymbol(Symbol symbol) {
+                addName(toString(symbol));
+            }
+
+            private CharSequence toString(Symbol symbol) {
+                return (isNullOrEmpty(symbol.owner)) ? symbol.name : toString(symbol.owner) + "." + symbol.name;
+            }
+
+            private void addName(CharSequence name) { packages.add(name); }
+
+            private boolean isNullOrEmpty(Symbol symbol) { return symbol == null || symbol.name.isEmpty(); }
+
             @Override public void visitImport(JCImport tree) {
-                packages.add(((JCFieldAccess) tree.getQualifiedIdentifier()).sym.owner.name);
+                addOwner(((JCFieldAccess) tree.getQualifiedIdentifier()).sym);
                 super.visitImport(tree);
             }
 
             /** field */
             @Override public void visitVarDef(JCVariableDecl tree) {
-                if (tree.getType() instanceof JCIdent)
-                    packages.add(((JCIdent) tree.getType()).sym.owner.name);
-                else if (((JCFieldAccess) tree.getType()).sym == null)
-                    packages.add(((JCIdent) ((JCFieldAccess) tree.getType()).selected).getName());
-                else
-                    packages.add(((JCFieldAccess) tree.getType()).sym.owner.name);
+                if (tree.getType() instanceof JCFieldAccess) {
+                    JCFieldAccess fieldAccess = (JCFieldAccess) tree.getType();
+                    if (isNullOrEmpty(fieldAccess.sym)) {
+                        addName(((JCIdent) fieldAccess.selected).getName());
+                    } else
+                        addOwner(fieldAccess.sym);
+                }
                 super.visitVarDef(tree);
             }
 
@@ -129,12 +147,33 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 JCTree returnType = tree.getReturnType();
                 if (returnType != null) {
                     if (tree.getReturnType() instanceof JCFieldAccess)
-                        packages.add(((JCFieldAccess) tree.getReturnType()).sym.owner.name);
+                        addOwner(((JCFieldAccess) tree.getReturnType()).sym);
                 }
                 super.visitMethodDef(tree);
             }
+
+            @Override public void visitApply(JCMethodInvocation tree) {
+                super.visitApply(tree);
+            }
+
+            @Override public void visitIdent(JCIdent tree) {
+                if (!isNullOrEmpty(tree.sym) && !isNullOrEmpty(tree.sym.owner))
+                    addOwner(tree.sym);
+                super.visitIdent(tree);
+            }
+
+            @Override public void visitNewClass(JCNewClass tree) {
+                if (tree.getIdentifier() instanceof JCIdent) {
+                    if (((JCIdent) tree.getIdentifier()).sym != null)
+                        addOwner(((JCIdent) tree.getIdentifier()).sym);
+                } else {
+                    addName(((JCIdent) ((JCFieldAccess) tree.getIdentifier()).selected).name);
+                }
+                super.visitNewClass(tree);
+            }
         });
         packages.remove(element.packge().name);
+        packages.remove("java.lang");
         return packages.stream().map(this::toPackage).collect(toList());
     }
 

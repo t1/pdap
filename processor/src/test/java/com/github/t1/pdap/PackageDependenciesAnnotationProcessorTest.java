@@ -240,11 +240,31 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileClassWithAllowedQualifiedDependencyInMethodBody() {
+    @Test void shouldCompileClassWithAllowedQualifiedDependencyVarInMethodBody() {
         compileSource("package source;\n" +
             "\n" +
             "public class Source {\n" +
             "    private void foo() { target.Target target = null; }\n" +
+            "}\n");
+
+        expect();
+    }
+
+    @Test void shouldCompileClassWithAllowedQualifiedDependencyAnonymousSubclassInMethodBody() {
+        compileSource("package source;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private void foo() { Object target = new target.Target() {}; }\n" +
+            "}\n");
+
+        expect();
+    }
+
+    @Test void shouldCompileClassWithAllowedQualifiedDependencyAnonymousSubclassField() {
+        compileSource("package source;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private Object target = new target.Target() {};\n" +
             "}\n");
 
         expect();
