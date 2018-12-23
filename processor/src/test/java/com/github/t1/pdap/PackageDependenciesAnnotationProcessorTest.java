@@ -302,4 +302,46 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
         expect();
     }
+
+    @Disabled @Test void shouldCompileWithIndirectDependency() {
+        compile(
+            "source/package-info", "" +
+                "@DependsUpon({\"target1\", \"target2\"})\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target1.Target1;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private void foo() { Object target2 = new Target1().target2(); }\n" +
+                "}\n",
+            "target1/package-info", "" +
+                "@DependsUpon(\"target2\")\n" +
+                "package target1;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target1/Target1", "" +
+                "package target1;\n" +
+                "\n" +
+                "import target2.Target2;\n" +
+                "\n" +
+                "public class Target1 {\n" +
+                "    public Target2 target2() { return null; }\n" +
+                "}\n",
+            "target2/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target2;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target2/Target2", "" +
+                "package target2;\n" +
+                "\n" +
+                "public class Target2 {\n" +
+                "}\n");
+
+        expect();
+    }
 }

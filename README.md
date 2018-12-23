@@ -38,18 +38,63 @@ and if you have allowed a dependency that is not used, it will report it as a wa
 Note that packages without a `@DependsOn` annotation won't be checked at all,
 which allows for a step-by-step introduction of dependency checking (and you *will* find violations ;)
 
+
 # Eclipse
 
 I haven't been using Eclipse for several years now, but it probably won't work with the Eclipse compiler,
 as we access the Abstract Syntax Tree from the Java compiler, and Eclipse is not compatible with that.
 
+
 # Status: Alpha
 
 There are still some features missing that are necessary to use in production:
 
-* Get not only the imports but also the qualified names used within the code
 * Super-Package-DependsOn: Define `DependsOn` on super packages, so all nested packages share these dependencies.
   This is essential, so you can add dependencies that are generally allowed, e.g. on libraries.
+
+
+# Known Issues
+
+##### Qualified Names Not Recognized
+
+Some qualified names used within the code *may* not be recognized.
+
+
+##### Indirect Dependencies Are Not Detected
+
+If you have three classes like this:
+
+```java
+package source;
+
+import target1.Target1;
+
+public class Source {
+    private void foo() { Object target2 = new Target1().target2(); }
+}
+```
+
+```java
+package target1;
+
+import target2.Target2;
+
+public class Target1 {
+    public Target2 target2() { return null; }
+}
+```
+
+```java
+package target2;
+
+public class Target2 {
+}
+```
+
+Then `Source` actually depends on `target1` as well as on `target2`.
+But this is not directly in the Java abstract syntax tree (AST), this is only resolved when linking.
+We still have to find out, how we can resolve this issue.
+
 
 # Ideas
 
