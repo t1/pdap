@@ -32,40 +32,38 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import static java.util.Collections.emptyList;
-import static java.util.stream.Collectors.toList;
+import static java.util.Collections.emptySet;
 import static javax.lang.model.SourceVersion.RELEASE_8;
+import static javax.lang.model.element.ElementKind.PACKAGE;
 
 @SupportedSourceVersion(RELEASE_8)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
-    private Map<Name, List<PackageElement>> actualPackageDependencies = new HashMap<>();
+    private Map<Name, Set<String>> actualPackageDependencies = new HashMap<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver())
             return false;
-        Set<Entry<CharSequence, CharSequence>> dependencyErrors = new LinkedHashSet<>();
-        Map<PackageElement, List<PackageElement>> unusedDependencies = new HashMap<>();
+        Set<Entry<String, String>> dependencyErrors = new LinkedHashSet<>();
+        Map<String, List<String>> unusedDependencies = new HashMap<>();
         for (Element element : roundEnv.getRootElements()) {
             if (!isType(element))
                 continue;
             TypeElement typeElement = (TypeElement) element;
-            PackageElement packageElement = (PackageElement) element.getEnclosingElement();
-            List<PackageElement> allowedDependencies = allowedDependencies(typeElement);
+            String packageElement = ((PackageElement) element.getEnclosingElement()).getQualifiedName().toString();
+            List<String> allowedDependencies = allowedDependencies(typeElement);
             if (allowedDependencies == null)
                 continue;
-            List<PackageElement> unused = unusedDependencies.computeIfAbsent(packageElement, e -> new ArrayList<>(allowedDependencies));
-            actualPackageDependencies(typeElement).forEach(it -> {
-                unused.remove(it);
-                CharSequence source = packageElement.getQualifiedName();
-                CharSequence target = it.getQualifiedName();
-                if (!allowedDependencies.contains(it)) {
-                    dependencyErrors.add(new SimpleEntry<>(source, target));
+            List<String> unused = unusedDependencies.computeIfAbsent(packageElement, e -> new ArrayList<>(allowedDependencies));
+            actualPackageDependencies(typeElement).forEach(target -> {
+                unused.remove(target);
+                if (!allowedDependencies.contains(target)) {
+                    dependencyErrors.add(new SimpleEntry<>(packageElement, target));
                 }
             });
             if (unused.remove(packageElement)) {
-                error("Cyclic dependency declared: [" + packageElement.getQualifiedName() + "] -> [" + packageElement.getQualifiedName() + "]");
+                error("Cyclic dependency declared: [" + packageElement + "] -> [" + packageElement + "]");
             }
         }
         dependencyErrors.forEach(it -> error("Forbidden dependency [" + it.getKey() + "] -> [" + it.getValue() + "]"));
@@ -77,8 +75,8 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         return element.getKind().isClass() || element.getKind().isInterface();
     }
 
-    private List<PackageElement> allowedDependencies(TypeElement element) {
-        List<PackageElement> allowedDependencies = new ArrayList<>();
+    private List<String> allowedDependencies(TypeElement element) {
+        List<String> allowedDependencies = new ArrayList<>();
         DependsUpon dependsUpon = findDependsUpon(element);
         if (dependsUpon == null) {
             note("no @DependsUpon annotation on [" + element + "]");
@@ -91,26 +89,26 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             if (dependencyElement == null) {
                 error("Invalid `DependsOn`: Unknown package [" + dependency + "].", element);
             } else {
-                allowedDependencies.add(dependencyElement);
+                allowedDependencies.add(dependencyElement.getQualifiedName().toString());
             }
         }
         return allowedDependencies;
     }
 
-    private List<PackageElement> actualPackageDependencies(TypeElement element) {
+    private Set<String> actualPackageDependencies(TypeElement element) {
         return actualPackageDependencies.computeIfAbsent(element.getQualifiedName(), name ->
             packagesDependenciesOf((ClassSymbol) element));
     }
 
-    private List<PackageElement> packagesDependenciesOf(ClassSymbol element) {
+    private Set<String> packagesDependenciesOf(ClassSymbol element) {
         final JavacElements elementUtils = (JavacElements) processingEnv.getElementUtils();
         Pair<JCTree, JCCompilationUnit> tree = elementUtils.getTreeAndTopLevel(element, null, null);
         if (tree == null || tree.snd == null)
-            return emptyList();
+            return emptySet();
         JCCompilationUnit compilationUnit = tree.snd;
         if (compilationUnit.getSourceFile().getName().endsWith("package-info.java"))
-            return emptyList();
-        Set<CharSequence> packages = new HashSet<>();
+            return emptySet();
+        Set<String> packages = new HashSet<>();
         compilationUnit.accept(new TreeScanner() {
             private void addOwner(Symbol symbol) { addSymbol(symbol.owner); }
 
@@ -118,11 +116,11 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 addName(toString(symbol));
             }
 
-            private CharSequence toString(Symbol symbol) {
-                return (isNullOrEmpty(symbol.owner)) ? symbol.name : toString(symbol.owner) + "." + symbol.name;
+            private String toString(Symbol symbol) {
+                return (isNullOrEmpty(symbol.owner)) ? symbol.name.toString() : toString(symbol.owner) + "." + symbol.name;
             }
 
-            private void addName(CharSequence name) { packages.add(name); }
+            private void addName(String name) { packages.add(name); }
 
             private boolean isNullOrEmpty(Symbol symbol) { return symbol == null || symbol.name.isEmpty(); }
 
@@ -136,7 +134,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                 if (tree.getType() instanceof JCFieldAccess) {
                     JCFieldAccess fieldAccess = (JCFieldAccess) tree.getType();
                     if (isNullOrEmpty(fieldAccess.sym)) {
-                        addName(((JCIdent) fieldAccess.selected).getName());
+                        addName(((JCIdent) fieldAccess.selected).getName().toString());
                     } else
                         addOwner(fieldAccess.sym);
                 }
@@ -157,7 +155,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             }
 
             @Override public void visitIdent(JCIdent tree) {
-                if (!isNullOrEmpty(tree.sym) && !isNullOrEmpty(tree.sym.owner))
+                if (!isNullOrEmpty(tree.sym) && !isNullOrEmpty(tree.sym.owner) && tree.sym.owner.getKind() == PACKAGE)
                     addOwner(tree.sym);
                 super.visitIdent(tree);
             }
@@ -167,21 +165,14 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                     if (((JCIdent) tree.getIdentifier()).sym != null)
                         addOwner(((JCIdent) tree.getIdentifier()).sym);
                 } else {
-                    addName(((JCIdent) ((JCFieldAccess) tree.getIdentifier()).selected).name);
+                    addName(((JCIdent) ((JCFieldAccess) tree.getIdentifier()).selected).name.toString());
                 }
                 super.visitNewClass(tree);
             }
         });
-        packages.remove(element.packge().name);
+        packages.remove(element.packge().name.toString());
         packages.remove("java.lang");
-        return packages.stream().map(this::toPackage).collect(toList());
-    }
-
-    private PackageElement toPackage(CharSequence it) {
-        PackageElement packageElement = getElementUtils().getPackageElement(it);
-        if (packageElement == null)
-            throw new RuntimeException("package not found: [" + it + "]");
-        return packageElement;
+        return packages;
     }
 
     private DependsUpon findDependsUpon(Element element) {

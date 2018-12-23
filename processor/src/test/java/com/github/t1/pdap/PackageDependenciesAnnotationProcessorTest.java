@@ -1,5 +1,6 @@
 package com.github.t1.pdap;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProcessorTest {
@@ -172,7 +173,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldFailWithTwoDisallowedDependencies() {
+    @Test void shouldFailWithTwoForbiddenDependencies() {
         compile(
             "source/package-info", "" +
                 "@DependsUpon(\"target3\")\n" +
@@ -217,6 +218,38 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect(
             error("Forbidden dependency [source] -> [target1]"),
             error("Forbidden dependency [source] -> [target2]")
+        );
+    }
+
+    @Test void shouldCompileWithDependencyAnnotation() {
+        compile(
+            "source/package-info", "" +
+                "@DependsUpon(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "@Target(\"/source\")" +
+                "public class Source {\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsUpon()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsUpon;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public @interface Target {\n" +
+                "    String value();\n" +
+                "}\n");
+
+        expect(
+            warning("compiler.warn.proc.annotations.without.processors", "No processor claimed any of these annotations: target.Target")
         );
     }
 
