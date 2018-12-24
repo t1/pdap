@@ -136,20 +136,32 @@ class AbstractAnnotationProcessorTest {
 
     void compile(String file1, String source1, String file2, String source2, String file3, String source3,
                  String file4, String source4) {
-        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3),
+        compile(asList(
+            file(file1, source1), file(file2, source2), file(file3, source3),
             file(file4, source4)));
     }
 
     void compile(String file1, String source1, String file2, String source2, String file3, String source3,
                  String file4, String source4, String file5, String source5) {
-        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3),
+        compile(asList(
+            file(file1, source1), file(file2, source2), file(file3, source3),
             file(file4, source4), file(file5, source5)));
     }
 
     void compile(String file1, String source1, String file2, String source2, String file3, String source3,
                  String file4, String source4, String file5, String source5, String file6, String source6) {
-        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3),
+        compile(asList(
+            file(file1, source1), file(file2, source2), file(file3, source3),
             file(file4, source4), file(file5, source5), file(file6, source6)));
+    }
+
+    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
+                 String file4, String source4, String file5, String source5, String file6, String source6,
+                 String file7, String source7) {
+        compile(asList(
+            file(file1, source1), file(file2, source2), file(file3, source3),
+            file(file4, source4), file(file5, source5), file(file6, source6),
+            file(file7, source7)));
     }
 
     private StringJavaFileObject file(String file1, String source1) {

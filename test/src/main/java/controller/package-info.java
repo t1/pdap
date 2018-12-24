@@ -1,4 +1,4 @@
-@DependsUpon()
+@DependsOn()
 package controller;
 
-import com.github.t1.pdap.DependsUpon;
+import com.github.t1.pdap.DependsOn;

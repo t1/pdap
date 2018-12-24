@@ -14,19 +14,19 @@ Just add a dependency to `com.github.t1:package.dependencies.annotation.processo
 and annotate your packages (i.e. the `package-info.java` files introduced in Java 1.6) with `@DependsOn`, e.g.:
 
 ```java
-@DependsUpon("controller")
+@DependsOn("controller")
 package boundary;
 
-import com.github.t1.pdap.DependsUpon;
+import com.github.t1.pdap.DependsOn;
 ```
 
 ... for you `boundary` package, and:
 
 ```java
-@DependsUpon()
+@DependsOn()
 package controller;
 
-import com.github.t1.pdap.DependsUpon;
+import com.github.t1.pdap.DependsOn;
 ```
 
 ... for your `controller` package.
@@ -46,14 +46,6 @@ as we access the Abstract Syntax Tree from the Java compiler, and Eclipse is not
 
 
 # Status: Alpha
-
-There are still some features missing that are necessary to use in production:
-
-* Super-Package-DependsOn: Define `DependsOn` on super packages, so all nested packages share these dependencies.
-  This is essential, so you can add dependencies that are generally allowed, e.g. on libraries.
-
-
-# Known Issues
 
 ##### Qualified Names Not Recognized
 

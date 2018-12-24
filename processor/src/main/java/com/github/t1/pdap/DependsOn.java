@@ -5,6 +5,6 @@ import java.lang.annotation.Target;
 import static java.lang.annotation.ElementType.PACKAGE;
 
 @Target(PACKAGE)
-public @interface DependsUpon {
+public @interface DependsOn {
     String[] value() default "";
 }

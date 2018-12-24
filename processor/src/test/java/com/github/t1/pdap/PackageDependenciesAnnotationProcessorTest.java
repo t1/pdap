@@ -7,17 +7,17 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     private void compileSource(String source) {
         compile(
             "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
+                "@DependsOn(\"target\")\n" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 source,
             "target/package-info", "" +
-                "@DependsUpon()\n" +
+                "@DependsOn()\n" +
                 "package target;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -45,13 +45,13 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             error("/FailAnnotationProcessing.java", 1, 1, 18, 1, 2, "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
     }
 
-    @Test void shouldFailInvalidDependsUpon() {
+    @Test void shouldFailInvalidDependsOn() {
         compile(
             "source/package-info", "" +
-                "@DependsUpon(\"undefined\")\n" +
+                "@DependsOn(\"undefined\")\n" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 "package source;\n" +
                 "\n" +
@@ -59,7 +59,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n");
 
         expect(
-            error("Invalid `DependsOn`: Unknown package [undefined].")
+            error("Invalid @DependsOn: unknown package [undefined]")
         );
     }
 
@@ -76,10 +76,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "    private Target target;\n" +
                 "}\n",
             "target/package-info", "" +
-                "@DependsUpon()\n" +
+                "@DependsOn()\n" +
                 "package target;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -87,17 +87,71 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n");
 
         expect(
-            note("no @DependsUpon annotation on [source.Source]")
+            warning("no @DependsOn annotation on [source]")
+        );
+    }
+
+    @Test void shouldCompileClassWithoutSuperDependsOn() {
+        compile(
+            "source/sub/package-info", "" +
+                "@DependsOn(\"target\")\n" +
+                "package source.sub;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/Source", "" +
+                "package source.sub;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Target target;\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsOn()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n");
+
+        expect(
+            warning("no @DependsOn annotation on [source]")
+        );
+    }
+
+    @Test void shouldCompileClassWithInvalidSuperDependsOn() {
+        compile(
+            "source/package-info", "" +
+                "@DependsOn(\"undefined\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/package-info", "" +
+                "@DependsOn()\n" +
+                "package source.sub;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/Source", "" +
+                "package source.sub;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "}\n");
+
+        expect(
+            error("Invalid @DependsOn: unknown package [undefined]")
         );
     }
 
     @Test void shouldFailToCompileDependencyOnSelf() {
         compile(
             "source/package-info", "" +
-                "@DependsUpon(\"source\")\n" +
+                "@DependsOn(\"source\")\n" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 "package source;\n" +
                 "\n" +
@@ -176,10 +230,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     @Test void shouldFailWithTwoForbiddenDependencies() {
         compile(
             "source/package-info", "" +
-                "@DependsUpon(\"target3\")\n" +
+                "@DependsOn(\"target3\")\n" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 "package source;\n" +
                 "\n" +
@@ -216,6 +270,9 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n");
 
         expect(
+            warning("no @DependsOn annotation on [target1]"),
+            warning("no @DependsOn annotation on [target2]"),
+            warning("no @DependsOn annotation on [target3]"),
             error("Forbidden dependency [source] -> [target1]"),
             error("Forbidden dependency [source] -> [target2]")
         );
@@ -224,10 +281,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     @Test void shouldCompileWithDependencyAnnotation() {
         compile(
             "source/package-info", "" +
-                "@DependsUpon(\"target\")\n" +
+                "@DependsOn(\"target\")\n" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 "package source;\n" +
                 "\n" +
@@ -237,10 +294,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "public class Source {\n" +
                 "}\n",
             "target/package-info", "" +
-                "@DependsUpon()\n" +
+                "@DependsOn()\n" +
                 "package target;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "target/Target", "" +
                 "package target;\n" +
                 "\n" +
@@ -303,13 +360,124 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
+    @Test void shouldCompileWithSuperPackageAllowingDependencyWithoutPackageDependsOn() {
+        compile(
+            "source/package-info", "" +
+                "@DependsOn(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/Source", "" +
+                "package source.sub;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Object target = new Target() {};\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsOn()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public interface Target {\n" +
+                "}\n");
+
+        expect(
+            warning("no @DependsOn annotation on [source.sub]")
+        );
+    }
+
+    @Test void shouldCompileWithSuperPackageAllowingDependencyWithEmptyPackageDependsOn() {
+        compile(
+            "source/package-info", "" +
+                "@DependsOn(\"target\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/package-info", "" +
+                "@DependsOn()\n" +
+                "package source.sub;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/Source", "" +
+                "package source.sub;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Object target = new Target() {};\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsOn()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public interface Target {\n" +
+                "}\n");
+
+        expect();
+    }
+
+    @Test void shouldCompileWithSuperPackageAllowingDependencyWithPackageDependsOnMerge() {
+        compile(
+            "source/package-info", "" +
+                "@DependsOn(\"target1\")\n" +
+                "package source;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/package-info", "" +
+                "@DependsOn(\"target2\")\n" +
+                "package source.sub;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub/Source", "" +
+                "package source.sub;\n" +
+                "\n" +
+                "import target1.Target1;\n" +
+                "import target2.Target2;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Object target1 = new Target1() {};\n" +
+                "    private Object target2 = new Target2() {};\n" +
+                "}\n",
+            "target1/package-info", "" +
+                "@DependsOn()\n" +
+                "package target1;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target1/Target1", "" +
+                "package target1;\n" +
+                "\n" +
+                "public interface Target1 {\n" +
+                "}\n",
+            "target2/package-info", "" +
+                "@DependsOn()\n" +
+                "package target2;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target2/Target2", "" +
+                "package target2;\n" +
+                "\n" +
+                "public interface Target2 {\n" +
+                "}\n");
+
+        expect();
+    }
+
     @Disabled @Test void shouldCompileWithIndirectDependency() {
         compile(
             "source/package-info", "" +
-                "@DependsUpon({\"target1\", \"target2\"})\n" +
+                "@DependsOn({\"target1\", \"target2\"})\n" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 "package source;\n" +
                 "\n" +
@@ -319,10 +487,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "    private void foo() { Object target2 = new Target1().target2(); }\n" +
                 "}\n",
             "target1/package-info", "" +
-                "@DependsUpon(\"target2\")\n" +
+                "@DependsOn(\"target2\")\n" +
                 "package target1;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "target1/Target1", "" +
                 "package target1;\n" +
                 "\n" +
@@ -332,10 +500,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "    public Target2 target2() { return null; }\n" +
                 "}\n",
             "target2/package-info", "" +
-                "@DependsUpon()\n" +
+                "@DependsOn()\n" +
                 "package target2;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsUpon;\n",
+                "import com.github.t1.pdap.DependsOn;\n",
             "target2/Target2", "" +
                 "package target2;\n" +
                 "\n" +
