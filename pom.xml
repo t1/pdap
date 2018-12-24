@@ -13,7 +13,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <!-- We are compatible to 1.8, but need 11 to compile, so we can use `@SupportedSourceVersion(RELEASE_11)` -->
+        <!-- JDK 11 hides the javac packages -->
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
 

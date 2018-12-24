@@ -122,6 +122,42 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
+    @Test void shouldCompileClassWithoutParentPackageInfos() {
+        compile(
+            "source/package-info", "" +
+                "package source;\n",
+            "source/sub1/package-info", "" +
+                "package source.sub1;\n",
+            "source/sub1/sub2/package-info", "" +
+                "@DependsOn(\"target\")\n" +
+                "package source.sub1.sub2;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "source/sub1/sub2/Source", "" +
+                "package source.sub1.sub2;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Target target;\n" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsOn()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "}\n");
+
+        expect(
+            warning("no @DependsOn annotation on [source]"),
+            warning("no @DependsOn annotation on [source.sub1]")
+        );
+    }
+
     @Test void shouldCompileClassWithInvalidSuperDependsOn() {
         compile(
             "source/package-info", "" +

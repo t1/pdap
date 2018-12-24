@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
-import static java.util.Collections.addAll;
-
 class DependsOnCollector {
     private final PackageElement packageElement;
     private final Elements elementUtils;
@@ -26,36 +24,39 @@ class DependsOnCollector {
         this.error = error;
     }
 
-    List<String> getDependencies() {
-        scanDependsOnInAll(packageElement);
+    Set<String> getDependencies() {
+        scanAllDependsOn(packageElement);
         if (foundDependsOns == null)
             return null;
-        return resolveDependencies();
+        return foundDependsOns;
     }
 
-    private void scanDependsOnInAll(PackageElement element) {
-        scanDependsOn(element);
+    private void scanAllDependsOn(PackageElement element) {
         String qualifiedName = element.getQualifiedName().toString();
+        scanDependsOn(qualifiedName);
         while (qualifiedName.contains(".")) {
             qualifiedName = qualifiedName.substring(0, qualifiedName.lastIndexOf('.'));
-            scanDependsOn(elementUtils.getPackageElement(qualifiedName));
+            scanDependsOn(qualifiedName);
         }
     }
 
-    private void scanDependsOn(PackageElement element) {
+    private void scanDependsOn(String qualifiedName) {
+        PackageElement element = elementUtils.getPackageElement(qualifiedName);
+        if (element == null)
+            return;
         DependsOn annotation = element.getAnnotation(DependsOn.class);
         if (annotation == null) {
             missingDependsOns.add(element.getQualifiedName().toString());
         } else {
             if (foundDependsOns == null)
                 foundDependsOns = new HashSet<>();
-            addAll(foundDependsOns, annotation.value());
+            foundDependsOns.addAll(resolveDependsOn(annotation, element));
         }
     }
 
-    private List<String> resolveDependencies() {
+    private List<String> resolveDependsOn(DependsOn annotation, PackageElement packageElement) {
         List<String> allowedDependencies = new ArrayList<>();
-        for (String dependency : foundDependsOns) {
+        for (String dependency : annotation.value()) {
             if (dependency.isEmpty())
                 continue;
             PackageElement dependencyElement = elementUtils.getPackageElement(dependency);
