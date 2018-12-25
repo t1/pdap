@@ -10,13 +10,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -32,29 +27,22 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver())
             return false;
-        Set<Entry<String, String>> dependencyErrors = new LinkedHashSet<>();
-        Map<String, List<String>> unusedDependencies = new HashMap<>();
+        Dependencies allowed = new Dependencies(getElementUtils());
         for (Element element : roundEnv.getRootElements()) {
             if (!isType(element))
                 continue;
             TypeElement typeElement = (TypeElement) element;
-            String packageElement = ((PackageElement) element.getEnclosingElement()).getQualifiedName().toString();
-            Set<String> allowedDependencies = allowedDependencies(typeElement);
-            if (allowedDependencies == null)
+            String source = ((PackageElement) element.getEnclosingElement()).getQualifiedName().toString();
+            if (allowed.missing(source)) {
+                missingDependsOns.add(source);
                 continue;
-            List<String> unused = unusedDependencies.computeIfAbsent(packageElement, e -> new ArrayList<>(allowedDependencies));
-            actualPackageDependencies(typeElement).forEach(target -> {
-                unused.remove(target);
-                if (!allowedDependencies.contains(target)) {
-                    dependencyErrors.add(new SimpleEntry<>(packageElement, target));
-                }
-            });
-            if (unused.remove(packageElement)) {
-                error("Cyclic dependency declared: [" + packageElement + "] -> [" + packageElement + "]");
             }
+            actualPackageDependencies(typeElement).forEach(target -> allowed.use(source, target));
         }
-        dependencyErrors.forEach(it -> error("Forbidden dependency [" + it.getKey() + "] -> [" + it.getValue() + "]"));
-        unusedDependencies.forEach((from, tos) -> tos.forEach(to -> warning("Unused dependency [" + from + "] -> [" + to + "]")));
+        allowed.invalid().forEach(it -> error("Invalid @DependsOn: unknown package [" + it.getKey() + "]", it.getValue()));
+        allowed.forbidden().forEach(it -> error("Forbidden dependency [" + it.getKey() + "] -> [" + it.getValue() + "]"));
+        allowed.unused().forEach(it -> warning("Unused dependency [" + it.getKey() + "] -> [" + it.getValue() + "]"));
+        allowed.cycles().forEach(it -> error("Cyclic dependency declared: [" + it.getKey() + "] -> [" + it.getValue() + "]"));
         missingDependsOns.forEach(it -> warning("no @DependsOn annotation on [" + it + "]"));
         return true;
     }
@@ -63,29 +51,8 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         return element.getKind().isClass() || element.getKind().isInterface();
     }
 
-    private Set<String> allowedDependencies(Element element) {
-        switch (element.getKind()) {
-            case PACKAGE:
-                return allowedPackageDependencies((PackageElement) element);
-            case ENUM:
-            case CLASS:
-            case ANNOTATION_TYPE:
-            case INTERFACE:
-                return allowedDependencies(/* PackageElement */ element.getEnclosingElement());
-        }
-        throw new UnsupportedOperationException("don't know how to find dependencies for " + element.getKind() + " " + element);
-    }
-
-    private Set<String> allowedPackageDependencies(PackageElement packageElement) {
-        return new DependsOnCollector(packageElement, getElementUtils(), this::error, missingDependsOns).getDependencies();
-    }
-
     private Set<String> actualPackageDependencies(TypeElement element) {
         return actualPackageDependencies.computeIfAbsent(element.getQualifiedName(), name ->
-            packagesDependenciesOf((ClassSymbol) element));
-    }
-
-    private Set<String> packagesDependenciesOf(ClassSymbol element) {
-        return new DependenciesCollector((JavacElements) processingEnv.getElementUtils(), element).getDependencies();
+            new DependenciesCollector((JavacElements) processingEnv.getElementUtils(), (ClassSymbol) element).getDependencies());
     }
 }

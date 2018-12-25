@@ -11,7 +11,7 @@ And do you really check the dependencies of a project with more than, e.g., 30 p
 
 This little annotation processor comes to your rescue:
 Just add a dependency to `com.github.t1:package.dependencies.annotation.processor`
-and annotate your packages (i.e. the `package-info.java` files introduced in Java 1.6) with `@DependsOn`, e.g.:
+and annotate your packages (i.e. in the `package-info.java` files introduced in Java 1.6) with `@DependsOn`, e.g.:
 
 ```java
 @DependsOn("controller")
@@ -35,8 +35,13 @@ The Java compiler detects the annotation processor in the dependency and execute
 If you have a dependency that is not allowed, it will report it as a compilation error;
 and if you have allowed a dependency that is not used, it will report it as a warning.
 
+You can add `@DependsOn` annotations on super packages as well;
+they will be merged with sub package annotations.
+This allows you to declare generally allowed dependencies only once.
+
 Note that packages without a `@DependsOn` annotation won't be checked at all,
 which allows for a step-by-step introduction of dependency checking (and you *will* find violations ;)
+A missing annotation on a leaf package will be reported as a warning.
 
 
 # Eclipse
