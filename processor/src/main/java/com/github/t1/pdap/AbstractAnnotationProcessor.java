@@ -27,12 +27,12 @@ public abstract class AbstractAnnotationProcessor extends AbstractProcessor {
 
     protected void error(String message, Element element) { print(Kind.ERROR, message, element); }
 
-    private void print(Kind kind, String message) {
+    protected void print(Kind kind, String message) {
         processingEnv.getMessager().printMessage(kind, message);
     }
 
-    private void print(Kind kind, String message, Element element) {
-        processingEnv.getMessager().printMessage(kind, message);
+    protected void print(Kind kind, String message, Element element) {
+        processingEnv.getMessager().printMessage(kind, message, element);
     }
 
 

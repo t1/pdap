@@ -1,5 +1,6 @@
 package com.github.t1.pdap;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.util.Elements;
 import java.util.AbstractMap.SimpleEntry;
@@ -13,16 +14,12 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 class Dependencies {
-    private static SimpleEntry<String, String> entry(String source, String target) {
-        return new SimpleEntry<>(source, target);
-    }
-
     private final Elements elements;
     private final Map<String, Set<String>> primary = new HashMap<>();
     private final Map<String, Set<String>> all = new HashMap<>();
-    private final Set<Entry<String, PackageElement>> invalid = new HashSet<>();
-    private final Set<Entry<String, String>> forbidden = new HashSet<>();
-    private final Set<Entry<String, String>> cycles = new HashSet<>();
+    private final Set<Entry<Element, String>> invalid = new HashSet<>();
+    private final List<Entry<Element, String>> forbidden = new ArrayList<>();
+    private final Set<Entry<Element, String>> cycles = new HashSet<>();
 
     Dependencies(Elements elements) {
         this.elements = elements;
@@ -31,10 +28,10 @@ class Dependencies {
     boolean missing(String packageElement) { return dependencies(packageElement) == null; }
 
     private Set<String> dependencies(String packageElement) {
-        return all.computeIfAbsent(packageElement, e -> allowedPackageDependencies(packageElement));
+        return all.computeIfAbsent(packageElement, e -> allowed(packageElement));
     }
 
-    private Set<String> allowedPackageDependencies(String source) {
+    private Set<String> allowed(String source) {
         DependsOnCollector collector = new DependsOnCollector(source);
         if (collector.all != null && collector.all.remove(source)) {
             collector.primary.remove(source);
@@ -45,25 +42,25 @@ class Dependencies {
         return collector.all;
     }
 
-    void use(String source, String target) {
+    void use(String source, String target, Element element) {
         if (all.containsKey(source)) {
             if (all.get(source).remove(target)) {
                 if (primary.containsKey(source))
                     primary.get(source).remove(target);
-                return;
             }
+            return;
         }
-        forbidden.add(entry(source, target));
+        forbidden.add(entry(element, target));
     }
 
-    Stream<Entry<String, PackageElement>> invalid() { return invalid.stream(); }
+    Stream<Entry<Element, String>> invalid() { return invalid.stream(); }
 
-    Stream<Entry<String, String>> forbidden() { return forbidden.stream(); }
+    Stream<Entry<Element, String>> forbidden() { return forbidden.stream(); }
 
-    Stream<Entry<String, String>> cycles() { return cycles.stream(); }
+    Stream<Entry<Element, String>> cycles() { return cycles.stream(); }
 
-    Stream<Entry<String, String>> unused() {
-        Set<Entry<String, String>> result = new HashSet<>();
+    Stream<Entry<Element, String>> unused() {
+        Set<Entry<Element, String>> result = new HashSet<>();
         for (Entry<String, Set<String>> entry : primary.entrySet()) {
             for (String target : entry.getValue()) {
                 result.add(entry(entry.getKey(), target));
@@ -73,18 +70,10 @@ class Dependencies {
     }
 
     private class DependsOnCollector {
-        private final String packageElement;
-
         Set<String> primary;
         Set<String> all;
 
-        DependsOnCollector(String packageElement) {
-            this.packageElement = packageElement;
-            scanAllDependsOn();
-        }
-
-        private void scanAllDependsOn() {
-            String qualifiedName = packageElement;
+        DependsOnCollector(String qualifiedName) {
             scanDependsOn(qualifiedName);
             if (all != null)
                 primary = new HashSet<>(all);
@@ -106,19 +95,27 @@ class Dependencies {
             }
         }
 
-        private List<String> resolveDependsOn(DependsOn annotation, PackageElement packageElement) {
-            List<String> allowedDependencies = new ArrayList<>();
-            for (String dependency : annotation.value()) {
-                if (dependency.isEmpty())
+        private List<String> resolveDependsOn(DependsOn annotation, PackageElement source) {
+            List<String> allowed = new ArrayList<>();
+            for (String target : annotation.value()) {
+                if (target.isEmpty())
                     continue;
-                PackageElement dependencyElement = elements.getPackageElement(dependency);
-                if (dependencyElement == null) {
-                    invalid.add(new SimpleEntry<>(dependency, packageElement));
+                PackageElement targetElement = elements.getPackageElement(target);
+                if (targetElement == null) {
+                    invalid.add(entry(source, target));
                 } else {
-                    allowedDependencies.add(dependencyElement.getQualifiedName().toString());
+                    allowed.add(targetElement.getQualifiedName().toString());
                 }
             }
-            return allowedDependencies;
+            return allowed;
         }
+    }
+
+    private SimpleEntry<Element, String> entry(Element source, String target) {
+        return new SimpleEntry<>(source, target);
+    }
+
+    private SimpleEntry<Element, String> entry(String source, String target) {
+        return new SimpleEntry<>(elements.getPackageElement(target), source);
     }
 }
