@@ -175,18 +175,31 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     @Test void shouldFailToCompileDependencyOnSelf() {
         compile(
             "source/package-info", "" +
-                "@DependsOn(\"source\")\n" +
+                "@DependsOn({\"source\", \"target\"})\n" +
                 "package source;\n" +
                 "\n" +
                 "import com.github.t1.pdap.DependsOn;\n",
             "source/Source", "" +
                 "package source;\n" +
                 "\n" +
+                "import target.Target;\n" +
+                "\n" +
                 "public class Source {\n" +
+                "   private Target target;" +
+                "}\n",
+            "target/package-info", "" +
+                "@DependsOn()\n" +
+                "package target;\n" +
+                "\n" +
+                "import com.github.t1.pdap.DependsOn;\n",
+            "target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public interface Target {\n" +
                 "}\n");
 
         expect(
-            error("/source/package-info.java", 0, 0, 74, 1, 1, "compiler.err.proc.messager", "Cyclic dependency declared [source]")
+            error("/source/package-info.java", 0, 0, 86, 1, 1, "compiler.err.proc.messager", "Cyclic dependency declared on [source]")
         );
     }
 
@@ -194,11 +207,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         compileSource("package source;\n" +
             "\n" +
             "public class Source {\n" +
-            "" +
             "}\n");
 
         expect(
-            warning("/target/package-info.java", 0, 0, 66, 1, 1, "compiler.warn.proc.messager", "Unused dependency [target] [source]")
+            warning("/source/package-info.java", 0, 0, 74, 1, 1, "compiler.warn.proc.messager", "Unused dependency on [target]")
         );
     }
 

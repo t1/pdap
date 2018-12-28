@@ -1,90 +1,96 @@
 package com.github.t1.pdap;
 
-import javax.lang.model.element.Element;
+import com.github.t1.pdap.Dependencies.Dependency.Type;
+
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.util.Elements;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.github.t1.pdap.Dependencies.Dependency.Type.CYCLE;
+import static com.github.t1.pdap.Dependencies.Dependency.Type.FORBIDDEN;
+import static com.github.t1.pdap.Dependencies.Dependency.Type.INVALID;
+import static com.github.t1.pdap.Dependencies.Dependency.Type.PRIMARY;
+import static com.github.t1.pdap.Dependencies.Dependency.Type.SECONDARY;
+
 class Dependencies {
+    static class Dependency {
+        enum Type {
+            PRIMARY, SECONDARY, INVALID, FORBIDDEN, CYCLE;
+
+            public Dependency dependency(String source, String target) { return new Dependency(source, target, this); }
+        }
+
+        final String source;
+        final String target;
+        final Type type;
+
+        boolean used = false;
+
+        Dependency(String source, String target, Type type) {
+            this.source = source;
+            this.target = target;
+            this.type = type;
+        }
+    }
+
     private final Elements elements;
-    private final Map<String, Set<String>> primary = new HashMap<>();
-    private final Map<String, Set<String>> all = new HashMap<>();
-    private final Set<Entry<Element, String>> invalid = new HashSet<>();
-    private final List<Entry<Element, String>> forbidden = new ArrayList<>();
-    private final Set<Entry<Element, String>> cycles = new HashSet<>();
+    final List<Dependency> dependencies = new ArrayList<>();
+    private final List<PackageElement> missingDependsOns = new ArrayList<>();
 
     Dependencies(Elements elements) {
         this.elements = elements;
     }
 
-    boolean missing(String packageElement) { return dependencies(packageElement) == null; }
-
-    private Set<String> dependencies(String packageElement) {
-        return all.computeIfAbsent(packageElement, e -> allowed(packageElement));
-    }
-
-    private Set<String> allowed(String source) {
+    void scan(String source) {
         DependsOnCollector collector = new DependsOnCollector(source);
-        if (collector.all != null && collector.all.remove(source)) {
-            collector.primary.remove(source);
-            cycles.add(entry(source, source));
+        if (collector.all == null) {
+            missingDependsOns.add(elements.getPackageElement(source));
+        } else {
+            collector.all.forEach(target -> {
+                Type type = source.equals(target) ? CYCLE : collector.isPrimary(target) ? PRIMARY : SECONDARY;
+                dependencies.add(type.dependency(source, target));
+            });
+            collector.invalid.forEach(invalid -> dependencies.add(INVALID.dependency(invalid.getKey(), invalid.getValue())));
         }
-        if (collector.primary != null)
-            this.primary.put(source, collector.primary);
-        return collector.all;
     }
 
-    void use(String source, String target, Element element) {
-        if (all.containsKey(source)) {
-            if (all.get(source).remove(target)) {
-                if (primary.containsKey(source))
-                    primary.get(source).remove(target);
-            }
-            return;
-        }
-        forbidden.add(entry(element, target));
+    void use(String source, String target) {
+        dependency(source, target).used = true;
     }
 
-    Stream<Entry<Element, String>> invalid() { return invalid.stream(); }
-
-    Stream<Entry<Element, String>> forbidden() { return forbidden.stream(); }
-
-    Stream<Entry<Element, String>> cycles() { return cycles.stream(); }
-
-    Stream<Entry<Element, String>> unused() {
-        Set<Entry<Element, String>> result = new HashSet<>();
-        for (Entry<String, Set<String>> entry : primary.entrySet()) {
-            for (String target : entry.getValue()) {
-                result.add(entry(entry.getKey(), target));
-            }
-        }
-        return result.stream();
+    private Dependency dependency(String source, String target) {
+        return dependencies.stream()
+            .filter(dependency -> dependency.target.equals(target))
+            .filter(dependency -> dependency.source.equals(source))
+            .findAny()
+            .orElseGet(() -> FORBIDDEN.dependency(source, target));
     }
+
+    Stream<PackageElement> missing() { return missingDependsOns.stream(); }
 
     private class DependsOnCollector {
         Set<String> primary;
         Set<String> all;
+        List<Entry<String, String>> invalid = new ArrayList<>();
 
-        DependsOnCollector(String qualifiedName) {
-            scanDependsOn(qualifiedName);
+        DependsOnCollector(String source) {
+            scanDependsOn(source);
             if (all != null)
                 primary = new HashSet<>(all);
-            while (qualifiedName.contains(".")) {
-                qualifiedName = qualifiedName.substring(0, qualifiedName.lastIndexOf('.'));
-                scanDependsOn(qualifiedName);
+            while (source.contains(".")) {
+                source = source.substring(0, source.lastIndexOf('.'));
+                scanDependsOn(source);
             }
         }
 
-        private void scanDependsOn(String qualifiedName) {
-            PackageElement element = elements.getPackageElement(qualifiedName);
+        private void scanDependsOn(String source) {
+            PackageElement element = elements.getPackageElement(source);
             if (element == null)
                 return;
             DependsOn annotation = element.getAnnotation(DependsOn.class);
@@ -102,20 +108,14 @@ class Dependencies {
                     continue;
                 PackageElement targetElement = elements.getPackageElement(target);
                 if (targetElement == null) {
-                    invalid.add(entry(source, target));
+                    invalid.add(new SimpleEntry<>(source.getQualifiedName().toString(), target));
                 } else {
                     allowed.add(targetElement.getQualifiedName().toString());
                 }
             }
             return allowed;
         }
-    }
 
-    private SimpleEntry<Element, String> entry(Element source, String target) {
-        return new SimpleEntry<>(source, target);
-    }
-
-    private SimpleEntry<Element, String> entry(String source, String target) {
-        return new SimpleEntry<>(elements.getPackageElement(target), source);
+        boolean isPrimary(String target) { return primary != null && primary.contains(target); }
     }
 }

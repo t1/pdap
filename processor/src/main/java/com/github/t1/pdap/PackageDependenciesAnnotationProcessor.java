@@ -1,5 +1,6 @@
 package com.github.t1.pdap;
 
+import com.github.t1.pdap.Dependencies.Dependency;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.model.JavacElements;
 
@@ -11,9 +12,8 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
-import java.util.ArrayList;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -26,7 +26,6 @@ import static javax.tools.Diagnostic.Kind.WARNING;
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
     private Map<Name, Set<String>> actualDependencies = new HashMap<>();
-    private List<PackageElement> missingDependsOns = new ArrayList<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
@@ -50,27 +49,39 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         TypeElement typeElement = (TypeElement) element;
         PackageElement packageElement = (PackageElement) element.getEnclosingElement();
         String source = packageElement.getQualifiedName().toString();
-        if (dependencies.missing(source)) {
-            missingDependsOns.add(packageElement);
-            return;
-        }
-        actualDependencies(typeElement).forEach(target -> dependencies.use(source, target, element));
+        dependencies.scan(source);
+        actualDependencies(typeElement).forEach(target -> dependencies.use(source, target));
     }
 
     private Set<String> actualDependencies(TypeElement element) {
         return actualDependencies.computeIfAbsent(element.getQualifiedName(), name ->
-            new DependenciesCollector((JavacElements) processingEnv.getElementUtils(), (ClassSymbol) element).getDependencies());
+            new DependenciesCollector((JavacElements) getElementUtils(), (ClassSymbol) element).getDependencies());
     }
 
-    private void report(Dependencies allowed) {
-        allowed.invalid().forEach(it -> report(ERROR, "Invalid @DependsOn: unknown package", it));
-        allowed.forbidden().forEach(it -> report(ERROR, "Forbidden dependency [" + it.getKey().getEnclosingElement().getSimpleName() + "] ->", it));
-        allowed.cycles().forEach(it -> report(ERROR, "Cyclic dependency declared", it));
-        allowed.unused().forEach(it -> report(WARNING, "Unused dependency [" + it.getKey() + "]", it));
-        missingDependsOns.forEach(it -> print(WARNING, "no @DependsOn annotation", it));
+    private void report(Dependencies dependencies) {
+        dependencies.dependencies.forEach(dependency -> {
+            Entry<Kind, String> message = message(dependency);
+            if (message != null)
+                print(message.getKey(), message.getValue() + " [" + dependency.target + "]", getElementUtils().getPackageElement(dependency.source));
+        });
+        dependencies.missing().forEach(it -> print(WARNING, "no @DependsOn annotation", it));
     }
 
-    private void report(Kind kind, String message, Entry<Element, String> entry) {
-        print(kind, message + " [" + entry.getValue() + "]", entry.getKey());
+    private Entry<Kind, String> message(Dependency dependency) {
+        switch (dependency.type) {
+            case PRIMARY:
+                return (dependency.used) ? null : entry(WARNING, "Unused dependency on");
+            case SECONDARY:
+                return null;
+            case INVALID:
+                return entry(ERROR, "Invalid @DependsOn: unknown package");
+            case FORBIDDEN:
+                return entry(ERROR, "Forbidden dependency on");
+            case CYCLE:
+                return entry(ERROR, "Cyclic dependency declared on");
+        }
+        throw new UnsupportedOperationException();
     }
+
+    private Entry<Kind, String> entry(Kind kind, String message) { return new SimpleEntry<>(kind, message); }
 }
