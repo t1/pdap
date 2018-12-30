@@ -12,10 +12,8 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import static javax.lang.model.SourceVersion.RELEASE_8;
@@ -25,7 +23,7 @@ import static javax.tools.Diagnostic.Kind.WARNING;
 @SupportedSourceVersion(RELEASE_8)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
-    private Map<Name, Set<String>> actualDependencies = new HashMap<>();
+    private Map<Name, Map<String, Element>> actualDependencies = new HashMap<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
@@ -35,7 +33,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         for (Element element : roundEnv.getRootElements()) {
             if (!isType(element))
                 continue;
-            processType(dependencies, element);
+            processType(dependencies, (TypeElement) element);
         }
         report(dependencies);
         return true;
@@ -45,43 +43,62 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         return element.getKind().isClass() || element.getKind().isInterface();
     }
 
-    private void processType(Dependencies dependencies, Element element) {
-        TypeElement typeElement = (TypeElement) element;
-        PackageElement packageElement = (PackageElement) element.getEnclosingElement();
+    private void processType(Dependencies dependencies, TypeElement typeElement) {
+        PackageElement packageElement = getElementUtils().getPackageOf(typeElement);
         String source = packageElement.getQualifiedName().toString();
         dependencies.scan(source);
-        actualDependencies(typeElement).forEach(target -> dependencies.use(source, target));
+        actualDependencies(typeElement).forEach((target, element) -> dependencies.use((element == null) ? typeElement : element, source, target));
     }
 
-    private Set<String> actualDependencies(TypeElement element) {
-        return actualDependencies.computeIfAbsent(element.getQualifiedName(), name ->
-            new DependenciesCollector((JavacElements) getElementUtils(), (ClassSymbol) element).getDependencies());
+    private Map<String, Element> actualDependencies(TypeElement element) {
+        return actualDependencies.computeIfAbsent(element.getQualifiedName(), name -> {
+            DependenciesCollector collector = new DependenciesCollector((JavacElements) getElementUtils(), (ClassSymbol) element);
+            for (String extraImport : collector.extraImports)
+                warning("Import [" + extraImport + "] not found as dependency", element);
+            return collector.dependencies;
+        });
     }
 
     private void report(Dependencies dependencies) {
-        dependencies.dependencies.forEach(dependency -> {
-            Entry<Kind, String> message = message(dependency);
+        dependencies.stream().forEach(dependency -> {
+            Message message = message(dependency);
             if (message != null)
-                print(message.getKey(), message.getValue() + " [" + dependency.target + "]", getElementUtils().getPackageElement(dependency.source));
+                print(message.kind, message.message + " [" + dependency.target + "]", message.element);
         });
-        dependencies.missing().forEach(it -> print(WARNING, "no @DependsOn annotation", it));
+        dependencies.missing().forEach(it -> warning("no @DependsOn annotation", it));
     }
 
-    private Entry<Kind, String> message(Dependency dependency) {
+    private Message message(Dependency dependency) {
         switch (dependency.type) {
             case PRIMARY:
-                return (dependency.used) ? null : entry(WARNING, "Unused dependency on");
+                return (dependency.used) ? null : new Message(WARNING, "Unused dependency on", element(dependency));
             case SECONDARY:
                 return null;
             case INVALID:
-                return entry(ERROR, "Invalid @DependsOn: unknown package");
+                return new Message(ERROR, "Invalid @DependsOn: unknown package", element(dependency));
             case FORBIDDEN:
-                return entry(ERROR, "Forbidden dependency on");
+                return new Message(ERROR, "Forbidden dependency on", element(dependency));
+            case INFERRED:
+                return null;
             case CYCLE:
-                return entry(ERROR, "Cyclic dependency declared on");
+                return new Message(ERROR, "Cyclic dependency declared on", element(dependency));
         }
         throw new UnsupportedOperationException();
     }
 
-    private Entry<Kind, String> entry(Kind kind, String message) { return new SimpleEntry<>(kind, message); }
+    private Element element(Dependency dependency) {
+        return (dependency.element == null) ? getElementUtils().getPackageElement(dependency.source) : dependency.element;
+    }
+
+    private class Message {
+        private final Kind kind;
+        private final String message;
+        private final Element element;
+
+        private Message(Kind kind, String message, Element element) {
+            this.kind = kind;
+            this.message = message;
+            this.element = element;
+        }
+    }
 }

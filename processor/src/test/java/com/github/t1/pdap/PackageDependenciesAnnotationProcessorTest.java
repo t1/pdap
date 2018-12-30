@@ -3,221 +3,202 @@ package com.github.t1.pdap;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.stream.Stream;
+
+import static java.util.stream.Collectors.joining;
+
 class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProcessorTest {
     private void compileSource(String source) {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target\")\n" +
+            packageInfo("source", "target"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/Source", "" +
-                source,
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public interface Target {\n" +
-                "}\n");
+                source),
+
+            packageInfo("target"),
+            targetInterface());
     }
 
-    @Test void shouldSucceedWithoutAnnotations() {
-        compile("SucceedAnnotationProcessing", "" +
-            "public class SucceedAnnotationProcessing {\n" +
-            "}");
+    private StringJavaFileObject packageInfo(String packageName, String... dependencies) {
+        return file(packageName.replace('.', '/') + "/package-info", "" +
+            "@DependsOn(" + dependenciesString(dependencies) + ")\n" +
+            "package " + packageName + ";\n" +
+            "\n" +
+            "import com.github.t1.pdap.DependsOn;\n");
+    }
+
+    private String dependenciesString(String... dependencies) {
+        switch (dependencies.length) {
+            case 0:
+                return "";
+            case 1:
+                return "\"" + dependencies[0] + "\"";
+            default:
+                return Stream.of(dependencies).collect(joining("\", \"", "{\"", "\"}"));
+        }
+    }
+
+    private StringJavaFileObject targetInterface() {
+        return file("target/Target", "" +
+            "package target;\n" +
+            "\n" +
+            "public interface Target {\n" +
+            "}\n");
+    }
+
+    private StringJavaFileObject targetClass() {
+        return file("target/Target", "" +
+            "package target;\n" +
+            "\n" +
+            "public class Target {\n" +
+            "}\n");
+    }
+
+
+    @Test void shouldSimplyCompile() {
+        compile(file("Simple", "" +
+            "public class Simple {\n" +
+            "}"));
 
         expect();
     }
 
-    @Test void shouldFailToCompileWithUnknownSymbol() {
-        compile(
-            "FailAnnotationProcessing", "" +
-                "@UnknownAnnotation\n" +
-                "public class FailAnnotationProcessing {\n" +
-                "}");
+    @Test void shouldProduceErrorForUnknownSymbol() {
+        compile(file("Failing", "" +
+            "@UnknownAnnotation\n" +
+            "public class Failing {\n" +
+            "}"));
 
         expect(
             warning("compiler.warn.proc.annotations.without.processors", "No processor claimed any of these annotations: UnknownAnnotation"),
-            error("/FailAnnotationProcessing.java", 1, 1, 18, 1, 2, "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
+            error("/Failing.java", 1, 1, 18, 1, 2,
+                "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
     }
 
-    @Test void shouldFailInvalidDependsOn() {
+    @Test void shouldProduceErrorForInvalidDependsOn() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"undefined\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/Source", "" +
+            packageInfo("source", "undefined"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "public class Source {\n" +
-                "}\n");
+                "}\n"));
 
         expect(
-            error("/source/package-info.java", 0, 0, 77, 1, 1, "compiler.err.proc.messager", "Invalid @DependsOn: unknown package [undefined]")
+            error("/source/package-info.java", 0, 0, 77, 1, 1,
+                "compiler.err.proc.messager", "Invalid @DependsOn: unknown package [undefined]")
         );
     }
 
-    @Test void shouldCompileClassWithoutDependsOn() {
+    @Test void shouldProduceErrorForInvalidSuperDependsOn() {
         compile(
-            "source/package-info", "" +
-                "package source;",
-            "source/Source", "" +
+            packageInfo("source", "undefined"),
+            packageInfo("source.sub"),
+            file("source/sub/Source", "" +
+                "package source.sub;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "}\n"));
+
+        expect(
+            error("/source/package-info.java", 0, 0, 77, 1, 1,
+                "compiler.err.proc.messager", "Invalid @DependsOn: unknown package [undefined]")
+        );
+    }
+
+    @Test void shouldWarnAboutMissingDependsOn() {
+        compile(
+            file("source/package-info", "" +
+                "package source;"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
 
         expect(
-            warning("/source/package-info.java", 0, 0, 15, 1, 1, "compiler.warn.proc.messager", "no @DependsOn annotation")
+            warning("/source/package-info.java", 0, 0, 15, 1, 1,
+                "compiler.warn.proc.messager", "no @DependsOn annotation")
         );
     }
 
-    @Test void shouldCompileClassWithoutSuperDependsOn() {
+    @Test void shouldNotWarnAboutMissingSuperDependsOn() {
         compile(
-            "source/sub/package-info", "" +
-                "@DependsOn(\"target\")\n" +
-                "package source.sub;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/Source", "" +
+            packageInfo("source.sub", "target"),
+            file("source/sub/Source", "" +
                 "package source.sub;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
 
         expect();
     }
 
-    @Test void shouldCompileClassWithoutParentPackageInfos() {
+    @Test void shouldNotWarnAboutMissingSuperPackageInfo() {
         compile(
-            "source/sub1/sub2/package-info", "" +
-                "@DependsOn(\"target\")\n" +
-                "package source.sub1.sub2;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub1/sub2/Source", "" +
+            packageInfo("source.sub1.sub2", "target"),
+            file("source/sub1/sub2/Source", "" +
                 "package source.sub1.sub2;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public class Target {\n" +
-                "}\n");
+                "}\n"),
+
+            packageInfo("target"),
+            targetClass());
 
         expect();
     }
 
-    @Test void shouldCompileClassWithInvalidSuperDependsOn() {
+    @Test void shouldProduceErrorForDependencyOnSelf() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"undefined\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/package-info", "" +
-                "@DependsOn()\n" +
-                "package source.sub;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/Source", "" +
-                "package source.sub;\n" +
-                "\n" +
-                "public class Source {\n" +
-                "}\n");
-
-        expect(
-            error("/source/package-info.java", 0, 0, 77, 1, 1, "compiler.err.proc.messager", "Invalid @DependsOn: unknown package [undefined]")
-        );
-    }
-
-    @Test void shouldFailToCompileDependencyOnSelf() {
-        compile(
-            "source/package-info", "" +
-                "@DependsOn({\"source\", \"target\"})\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/Source", "" +
+            packageInfo("source", "source", "target"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "   private Target target;" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public interface Target {\n" +
-                "}\n");
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
 
         expect(
-            error("/source/package-info.java", 0, 0, 86, 1, 1, "compiler.err.proc.messager", "Cyclic dependency declared on [source]")
+            error("/source/package-info.java", 0, 0, 86, 1, 1,
+                "compiler.err.proc.messager", "Cyclic dependency declared on [source]")
         );
     }
 
     @Test void shouldWarnAboutUnusedDependency() {
-        compileSource("package source;\n" +
-            "\n" +
+        compileSource("" +
             "public class Source {\n" +
             "}\n");
 
         expect(
-            warning("/source/package-info.java", 0, 0, 74, 1, 1, "compiler.warn.proc.messager", "Unused dependency on [target]")
+            warning("/source/package-info.java", 0, 0, 74, 1, 1,
+                "compiler.warn.proc.messager", "Unused dependency on [target]")
         );
     }
 
-    @Test void shouldCompileClassWithAllowedDependency() {
+    @Test void shouldNotProduceErrorForFieldWithAllowedDependency() {
         compileSource("" +
-            "package source;\n" +
-            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public class Source {\n" +
@@ -227,10 +208,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileEnumWithAllowedDependency() {
+    @Test void shouldNotProduceErrorForEnumWithAllowedDependency() {
         compileSource("" +
-            "package source;\n" +
-            "\n" +
             "import target.Target;\n" +
             "\n" +
             "enum Source {\n" +
@@ -241,10 +220,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileAnnotationWithAllowedDependency() {
+    @Test void shouldNotProduceErrorForAnnotationWithAllowedDependency() {
         compileSource("" +
-            "package source;\n" +
-            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public @interface Source {\n" +
@@ -254,10 +231,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileInterfaceWithAllowedDependency() {
+    @Test void shouldNotProduceErrorForInterfaceWithAllowedDependency() {
         compileSource("" +
-            "package source;\n" +
-            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public interface Source extends Target {\n" +
@@ -266,14 +241,85 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldFailWithTwoForbiddenDependencies() {
+    @Test void shouldWarnAboutClassWithUnusedImport() {
+        compileSource("" +
+            "import target.Target;\n" +
+            "\n" +
+            "public class Source{\n" +
+            "}\n");
+
+        expect(
+            warning("/source/Source.java", 47, 40, 62, 5, 8,
+                "compiler.warn.proc.messager", "Import [target] not found as dependency"),
+            warning("/source/package-info.java", 0, 0, 74, 1, 1,
+                "compiler.warn.proc.messager", "Unused dependency on [target]")
+        );
+    }
+
+    @Test void shouldProduceErrorForForbiddenExtendsClassDependency() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target3\")\n" +
+            packageInfo("source"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/Source", "" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source extends Target {\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            targetClass());
+
+        expect(
+            error("/source/Source.java", 47, 40, 78, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldProduceErrorForForbiddenExtendsInterfaceDependency() {
+        compile(
+            packageInfo("source"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public interface Source extends Target {\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
+
+        expect(
+            error("/source/Source.java", 47, 40, 82, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldProduceErrorForForbiddenImplementsDependency() {
+        compile(
+            packageInfo("source"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source implements Target {\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
+
+        expect(
+            error("/source/Source.java", 47, 40, 81, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldProduceErrorsForTwoForbiddenAndOneAllowedFieldDependency() {
+        compile(
+            packageInfo("source", "target3"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target1.Target1a;\n" +
@@ -282,76 +328,93 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "import target3.Target3;\n" +
                 "\n" +
                 "public class Source {\n" +
-                "    private Target1a target1a;\n" +
-                "    private Target1b target1b;\n" +
-                "    private Target2 target2;\n" +
-                "    private Target3 target3;\n" +
-                "}\n",
-            "target1/Target1a", "" +
+                "    private Target1a t1a;\n" +
+                "    private Target1b t1b;\n" +
+                "    private Target2 t2;\n" +
+                "    private Target3 t3;\n" +
+                "}\n"),
+
+            packageInfo("target1"),
+            file("target1/Target1a", "" +
                 "package target1;\n" +
                 "\n" +
                 "public class Target1a {\n" +
-                "}\n",
-            "target1/Target1b", "" +
+                "}\n"),
+            file("target1/Target1b", "" +
                 "package target1;\n" +
                 "\n" +
                 "public class Target1b {\n" +
-                "}\n",
-            "target2/Target2", "" +
+                "}\n"),
+
+            packageInfo("target2"),
+            file("target2/Target2", "" +
                 "package target2;\n" +
                 "\n" +
                 "public class Target2 {\n" +
-                "}\n",
-            "target3/Target3", "" +
+                "}\n"),
+
+            packageInfo("target3"),
+            file("target3/Target3", "" +
                 "package target3;\n" +
                 "\n" +
                 "public class Target3 {\n" +
-                "}\n");
+                "}\n"));
 
         expect(
-            warning("no @DependsOn annotation"),
-            warning("no @DependsOn annotation"),
-            warning("no @DependsOn annotation")
-            // error("/source/Source.java", 123, 116, 259, 8, 8, "compiler.err.proc.messager", "Forbidden dependency [source] -> [target1]"),
-            // error("/source/Source.java", 123, 116, 259, 8, 8, "compiler.err.proc.messager", "Forbidden dependency [source] -> [target2]")
+            error("/source/Source.java", 159, 142, 163, 9, 22,
+                "compiler.err.proc.messager", "Forbidden dependency on [target1]"),
+            error("/source/Source.java", 210, 194, 213, 11, 21,
+                "compiler.err.proc.messager", "Forbidden dependency on [target2]")
         );
     }
 
-    @Test void shouldCompileWithDependencyAnnotation() {
+    @Test void shouldProduceErrorForForbiddenTypeBoundDependency() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target\")\n" +
+            packageInfo("source"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/Source", "" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source<T extends Target> {\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            targetClass());
+
+        expect(
+            error("/source/Source.java", 47, 40, 81, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldNotProduceErrorForDependencyToAnnotation() {
+        compile(
+            packageInfo("source"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "@Target(\"/source\")" +
                 "public class Source {\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
+                "}\n"),
+
+            packageInfo("target"),
+            file("target/Target", "" +
                 "package target;\n" +
                 "\n" +
                 "public @interface Target {\n" +
                 "    String value();\n" +
-                "}\n");
+                "}\n"));
 
         expect(
             warning("compiler.warn.proc.annotations.without.processors", "No processor claimed any of these annotations: target.Target")
         );
     }
 
-    @Test void shouldCompileClassWithAllowedQualifiedDependencyField() {
-        compileSource("package source;\n" +
-            "\n" +
+    @Test void shouldNotReportErrorAboutAllowedQualifiedFieldType() {
+        compileSource("" +
             "public class Source {\n" +
             "    private target.Target target;\n" +
             "}\n");
@@ -359,9 +422,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileClassWithAllowedQualifiedDependencyMethodReturnType() {
-        compileSource("package source;\n" +
-            "\n" +
+    @Test void shouldNotReportErrorAboutAllowedQualifiedMethodReturnType() {
+        compileSource("" +
             "public class Source {\n" +
             "    private target.Target foo() { return null; }\n" +
             "}\n");
@@ -369,9 +431,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileClassWithAllowedQualifiedDependencyVarInMethodBody() {
-        compileSource("package source;\n" +
-            "\n" +
+    @Test void shouldNotReportErrorAboutAllowedQualifiedVariableInMethodBody() {
+        compileSource("" +
             "public class Source {\n" +
             "    private void foo() { target.Target target = null; }\n" +
             "}\n");
@@ -379,9 +440,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileClassWithAllowedQualifiedDependencyAnonymousSubclassInMethodBody() {
-        compileSource("package source;\n" +
-            "\n" +
+    @Test void shouldNotReportErrorAboutAllowedQualifiedAnonymousSubclassInMethodBody() {
+        compileSource("" +
             "public class Source {\n" +
             "    private void foo() { Object target = new target.Target() {}; }\n" +
             "}\n");
@@ -389,9 +449,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileClassWithAllowedQualifiedDependencyAnonymousSubclassField() {
-        compileSource("package source;\n" +
-            "\n" +
+    @Test void shouldNotReportErrorAboutAllowedQualifiedAnonymousSubclassField() {
+        compileSource("" +
             "public class Source {\n" +
             "    private Object target = new target.Target() {};\n" +
             "}\n");
@@ -399,82 +458,48 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldCompileWithSuperPackageAllowingDependencyWithoutPackageDependsOn() {
+    @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithoutPackageDependsOn() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/Source", "" +
+            packageInfo("source", "target"),
+            file("source/sub/Source", "" +
                 "package source.sub;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public interface Target {\n" +
-                "}\n");
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
 
         expect();
     }
 
-    @Test void shouldCompileWithSuperPackageAllowingDependencyWithEmptyPackageDependsOn() {
+    @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithEmptyPackageDependsOn() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/package-info", "" +
-                "@DependsOn()\n" +
-                "package source.sub;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/Source", "" +
+            packageInfo("source", "target"),
+            packageInfo("source.sub"),
+            file("source/sub/Source", "" +
                 "package source.sub;\n" +
                 "\n" +
                 "import target.Target;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target target;\n" +
-                "}\n",
-            "target/package-info", "" +
-                "@DependsOn()\n" +
-                "package target;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public interface Target {\n" +
-                "}\n");
+                "}\n"),
+
+            packageInfo("target"),
+            targetInterface());
 
         expect();
     }
 
-    @Test void shouldCompileWithSuperPackageAllowingDependencyWithPackageDependsOnMerge() {
+    @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithPackageDependsOnMerge() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target1\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/package-info", "" +
-                "@DependsOn(\"target2\")\n" +
-                "package source.sub;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/Source", "" +
+            packageInfo("source", "target1"),
+            packageInfo("source.sub", "target2"),
+            file("source/sub/Source", "" +
                 "package source.sub;\n" +
                 "\n" +
                 "import target1.Target1;\n" +
@@ -483,113 +508,83 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "public class Source {\n" +
                 "    private Target1 target1;\n" +
                 "    private Target2 target2;\n" +
-                "}\n",
-            "target1/package-info", "" +
-                "@DependsOn()\n" +
-                "package target1;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target1/Target1", "" +
+                "}\n"),
+
+            packageInfo("target1"),
+            file("target1/Target1", "" +
                 "package target1;\n" +
                 "\n" +
                 "public interface Target1 {\n" +
-                "}\n",
-            "target2/package-info", "" +
-                "@DependsOn()\n" +
-                "package target2;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target2/Target2", "" +
+                "}\n"),
+
+            packageInfo("target2"),
+            file("target2/Target2", "" +
                 "package target2;\n" +
                 "\n" +
                 "public interface Target2 {\n" +
-                "}\n");
+                "}\n"));
 
         expect();
     }
 
-    @Test void shouldCompileWithUnusedSuperPackageDependency() {
+    @Test void shouldNotReportErrorAboutUnusedSuperPackageDependency() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn(\"target1\")\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/package-info", "" +
-                "@DependsOn(\"target2\")\n" +
-                "package source.sub;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/sub/Source", "" +
+            packageInfo("source", "target1"),
+            packageInfo("source.sub", "target2"),
+            file("source/sub/Source", "" +
                 "package source.sub;\n" +
                 "\n" +
                 "import target2.Target2;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private Target2 target2;\n" +
-                "}\n",
-            "target1/package-info", "" +
-                "@DependsOn()\n" +
-                "package target1;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target1/Target1", "" +
+                "}\n"),
+
+            packageInfo("target1"),
+            file("target1/Target1", "" +
                 "package target1;\n" +
                 "\n" +
                 "public interface Target1 {\n" +
-                "}\n",
-            "target2/package-info", "" +
-                "@DependsOn()\n" +
-                "package target2;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target2/Target2", "" +
+                "}\n"),
+
+            packageInfo("target2"),
+            file("target2/Target2", "" +
                 "package target2;\n" +
                 "\n" +
                 "public interface Target2 {\n" +
-                "}\n");
+                "}\n"));
 
         expect();
     }
 
-    @Disabled @Test void shouldCompileWithIndirectDependency() {
+    @Disabled @Test void shouldNotReportErrorAboutIndirectDependency() {
         compile(
-            "source/package-info", "" +
-                "@DependsOn({\"target1\", \"target2\"})\n" +
-                "package source;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "source/Source", "" +
+            packageInfo("source", "target1", "target2"),
+            file("source/Source", "" +
                 "package source;\n" +
                 "\n" +
                 "import target1.Target1;\n" +
                 "\n" +
                 "public class Source {\n" +
                 "    private void foo() { Object target2 = new Target1().target2(); }\n" +
-                "}\n",
-            "target1/package-info", "" +
-                "@DependsOn(\"target2\")\n" +
-                "package target1;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target1/Target1", "" +
+                "}\n"),
+
+            packageInfo("target1", "target2"),
+            file("target1/Target1", "" +
                 "package target1;\n" +
                 "\n" +
                 "import target2.Target2;\n" +
                 "\n" +
                 "public class Target1 {\n" +
                 "    public Target2 target2() { return null; }\n" +
-                "}\n",
-            "target2/package-info", "" +
-                "@DependsOn()\n" +
-                "package target2;\n" +
-                "\n" +
-                "import com.github.t1.pdap.DependsOn;\n",
-            "target2/Target2", "" +
+                "}\n"),
+
+            packageInfo("target2"),
+            file("target2/Target2", "" +
                 "package target2;\n" +
                 "\n" +
                 "public class Target2 {\n" +
-                "}\n");
+                "}\n"));
 
         expect();
     }

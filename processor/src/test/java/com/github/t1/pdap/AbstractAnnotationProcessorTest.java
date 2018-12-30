@@ -18,7 +18,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SuppressWarnings({"SameParameterValue", "unused", "WeakerAccess"})
+@SuppressWarnings({"SameParameterValue", "unused"})
 class AbstractAnnotationProcessorTest {
     static class DiagnosticMatch {
         private Kind kind;
@@ -43,7 +43,7 @@ class AbstractAnnotationProcessorTest {
                 diagnostic.getMessage(null));
         }
 
-        //<editor-fold desc="Description">
+        //<editor-fold desc="Standard constructor, equals, hashcode, toString">
         DiagnosticMatch(Kind kind, String source, long position, long startPosition, long endPosition, long lineNumber, long columnNumber, String code, String message) {
             this.kind = kind;
             this.source = source;
@@ -124,59 +124,22 @@ class AbstractAnnotationProcessorTest {
     private final List<DiagnosticMatch> diagnostics = new ArrayList<>();
     private PackageDependenciesAnnotationProcessor pdap = new PackageDependenciesAnnotationProcessor();
 
-    void compile(String fileName, String source) { compile(singletonList(file(fileName, source))); }
-
-    void compile(String file1, String source1, String file2, String source2) {
-        compile(asList(file(file1, source1), file(file2, source2)));
-    }
-
-    void compile(String file1, String source1, String file2, String source2, String file3, String source3) {
-        compile(asList(file(file1, source1), file(file2, source2), file(file3, source3)));
-    }
-
-    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
-                 String file4, String source4) {
-        compile(asList(
-            file(file1, source1), file(file2, source2), file(file3, source3),
-            file(file4, source4)));
-    }
-
-    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
-                 String file4, String source4, String file5, String source5) {
-        compile(asList(
-            file(file1, source1), file(file2, source2), file(file3, source3),
-            file(file4, source4), file(file5, source5)));
-    }
-
-    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
-                 String file4, String source4, String file5, String source5, String file6, String source6) {
-        compile(asList(
-            file(file1, source1), file(file2, source2), file(file3, source3),
-            file(file4, source4), file(file5, source5), file(file6, source6)));
-    }
-
-    void compile(String file1, String source1, String file2, String source2, String file3, String source3,
-                 String file4, String source4, String file5, String source5, String file6, String source6,
-                 String file7, String source7) {
-        compile(asList(
-            file(file1, source1), file(file2, source2), file(file3, source3),
-            file(file4, source4), file(file5, source5), file(file6, source6),
-            file(file7, source7)));
-    }
-
-    private StringJavaFileObject file(String file1, String source1) {
+    StringJavaFileObject file(String file1, String source1) {
         return new StringJavaFileObject(Paths.get(file1 + ".java"), source1);
     }
 
-    void compile(List<JavaFileObject> compilationUnits) {
+    void compile(JavaFileObject... compilationUnits) {
         DiagnosticListener<JavaFileObject> diagnosticListener = diagnostic -> {
-            System.out.println(diagnostic.getKind() + " [" + diagnostic.getCode() + "] " + diagnostic.getMessage(null));
+            System.out.println(diagnostic.getKind() + " [" + diagnostic.getCode() + "] " + diagnostic.getMessage(null)
+                + ((diagnostic.getSource() == null) ? ""
+                : (" @ " + diagnostic.getSource().getName() + ":" + diagnostic.getLineNumber() + "," + diagnostic.getColumnNumber())));
             diagnostics.add(new DiagnosticMatch(diagnostic));
         };
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         NoOutputFileManager fileManager = new NoOutputFileManager(compiler.getStandardFileManager(diagnosticListener, null, null));
 
-        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, asList("-Xlint:all", "-source", "8", "-target", "8"), null, compilationUnits);
+        CompilationTask task = compiler.getTask(null, fileManager, diagnosticListener, asList("-Xlint:all", "-source", "8", "-target", "8"),
+            null, asList(compilationUnits));
         task.setProcessors(singletonList(pdap));
         task.call();
     }
@@ -237,6 +200,7 @@ class AbstractAnnotationProcessorTest {
 
 
     DiagnosticMatch note(String message) {
-        return new DiagnosticMatch(Kind.NOTE, null, -1, -1, -1, -1, -1, "compiler.note.proc.messager", message);
+        return new DiagnosticMatch(Kind.NOTE, null, -1, -1, -1, -1, -1,
+            "compiler.note.proc.messager", message);
     }
 }

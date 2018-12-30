@@ -2,6 +2,7 @@ package com.github.t1.pdap;
 
 import com.github.t1.pdap.Dependencies.Dependency.Type;
 
+import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.util.Elements;
 import java.util.AbstractMap.SimpleEntry;
@@ -14,6 +15,7 @@ import java.util.stream.Stream;
 
 import static com.github.t1.pdap.Dependencies.Dependency.Type.CYCLE;
 import static com.github.t1.pdap.Dependencies.Dependency.Type.FORBIDDEN;
+import static com.github.t1.pdap.Dependencies.Dependency.Type.INFERRED;
 import static com.github.t1.pdap.Dependencies.Dependency.Type.INVALID;
 import static com.github.t1.pdap.Dependencies.Dependency.Type.PRIMARY;
 import static com.github.t1.pdap.Dependencies.Dependency.Type.SECONDARY;
@@ -21,7 +23,7 @@ import static com.github.t1.pdap.Dependencies.Dependency.Type.SECONDARY;
 class Dependencies {
     static class Dependency {
         enum Type {
-            PRIMARY, SECONDARY, INVALID, FORBIDDEN, CYCLE;
+            PRIMARY, SECONDARY, INVALID, FORBIDDEN, INFERRED, CYCLE;
 
             public Dependency dependency(String source, String target) { return new Dependency(source, target, this); }
         }
@@ -30,6 +32,8 @@ class Dependencies {
         final String target;
         final Type type;
 
+        /** Some source element that requires this dependency or null if not applicable or not found */
+        Element element;
         boolean used = false;
 
         Dependency(String source, String target, Type type) {
@@ -40,7 +44,7 @@ class Dependencies {
     }
 
     private final Elements elements;
-    final List<Dependency> dependencies = new ArrayList<>();
+    private final List<Dependency> dependencies = new ArrayList<>();
     private final List<PackageElement> missingDependsOns = new ArrayList<>();
 
     Dependencies(Elements elements) {
@@ -60,19 +64,31 @@ class Dependencies {
         }
     }
 
-    void use(String source, String target) {
-        dependency(source, target).used = true;
+    void use(Element element, String source, String target) {
+        dependency(element, source, target).used = true;
     }
 
-    private Dependency dependency(String source, String target) {
+    private Dependency dependency(Element element, String source, String target) {
         return dependencies.stream()
             .filter(dependency -> dependency.target.equals(target))
             .filter(dependency -> dependency.source.equals(source))
             .findAny()
-            .orElseGet(() -> FORBIDDEN.dependency(source, target));
+            .orElseGet(() -> {
+                Type type = missing(source) ? INFERRED : FORBIDDEN;
+                Dependency dependency = type.dependency(source, target);
+                dependency.element = element;
+                dependencies.add(dependency);
+                return dependency;
+            });
+    }
+
+    private boolean missing(String source) {
+        return missing().anyMatch(packageElement -> packageElement.getQualifiedName().toString().equals(source));
     }
 
     Stream<PackageElement> missing() { return missingDependsOns.stream(); }
+
+    Stream<Dependency> stream() { return dependencies.stream(); }
 
     private class DependsOnCollector {
         Set<String> primary;
