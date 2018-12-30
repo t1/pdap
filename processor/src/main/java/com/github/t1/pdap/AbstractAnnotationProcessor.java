@@ -1,6 +1,8 @@
 package com.github.t1.pdap;
 
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.SupportedSourceVersion;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic.Kind;
@@ -8,6 +10,10 @@ import java.util.function.Supplier;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public abstract class AbstractAnnotationProcessor extends AbstractProcessor {
+    @Override public SourceVersion getSupportedSourceVersion() {
+        return this.getClass().isAnnotationPresent(SupportedSourceVersion.class)
+            ? super.getSupportedSourceVersion() : SourceVersion.latestSupported();
+    }
 
     protected void debug(Supplier<String> message) {
         if (isDebugEnabled())

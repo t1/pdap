@@ -6,7 +6,6 @@ import com.sun.tools.javac.model.JavacElements;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
@@ -17,11 +16,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.util.stream.Collectors.joining;
-import static javax.lang.model.SourceVersion.RELEASE_8;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static javax.tools.Diagnostic.Kind.WARNING;
 
-@SupportedSourceVersion(RELEASE_8)
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
     private Map<Name, Map<String, Element>> actualDependencies = new HashMap<>();
@@ -52,7 +49,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         actualDependencies(typeElement).forEach((target, element) -> dependencies.use((element == null) ? typeElement : element, source, target));
         debug(() -> "type " + typeElement + " has dependencies on " + dependencies.stream()
             .filter(dependency -> dependency.source.equals(source))
-            .map(dependency -> dependency.target + " (" + dependency.type + ")")
+            .map(dependency -> dependency.target + " (" + dependency.type.name().toLowerCase() + ")")
             .collect(joining("], [", "[", "]")));
     }
 
