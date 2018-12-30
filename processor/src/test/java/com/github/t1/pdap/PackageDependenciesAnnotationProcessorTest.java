@@ -11,10 +11,16 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     private void compileSource(String source) {
         compile(
             packageInfo("source", "target"),
-            file("source/Source", "" +
-                "package source;\n" +
-                "\n" +
-                source),
+            file("source/Source", source),
+
+            packageInfo("target"),
+            targetInterface());
+    }
+
+    private void compileForbiddenSource(String source) {
+        compile(
+            packageInfo("source"),
+            file("source/Source", source),
 
             packageInfo("target"),
             targetInterface());
@@ -64,7 +70,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldProduceErrorForUnknownSymbol() {
+    @Test void shouldReportErrorForUnknownSymbol() {
         compile(file("Failing", "" +
             "@UnknownAnnotation\n" +
             "public class Failing {\n" +
@@ -76,7 +82,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
     }
 
-    @Test void shouldProduceErrorForInvalidDependsOn() {
+    @Test void shouldReportErrorForInvalidDependsOn() {
         compile(
             packageInfo("source", "undefined"),
             file("source/Source", "" +
@@ -91,7 +97,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldProduceErrorForInvalidSuperDependsOn() {
+    @Test void shouldReportErrorForInvalidSuperDependsOn() {
         compile(
             packageInfo("source", "undefined"),
             packageInfo("source.sub"),
@@ -165,7 +171,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldProduceErrorForDependencyOnSelf() {
+    @Test void shouldReportErrorForDependencyOnSelf() {
         compile(
             packageInfo("source", "source", "target"),
             file("source/Source", "" +
@@ -188,6 +194,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Test void shouldWarnAboutUnusedDependency() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "public class Source {\n" +
             "}\n");
 
@@ -197,8 +205,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldNotProduceErrorForFieldWithAllowedDependency() {
+    @Test void shouldNotReportErrorForFieldWithAllowedDependency() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public class Source {\n" +
@@ -208,8 +218,26 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
+    @Test void shouldReportErrorForFieldWithForbiddenDependency() {
+        compileForbiddenSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private Target target;\n" +
+            "}\n");
+
+        expect(
+            error("/source/Source.java", 81, 66, 88, 6, 20,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
     @Disabled @Test void shouldNotReportErrorAboutAllowedAnonymousSubclassInMethodBody() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public class Source {\n" +
@@ -219,8 +247,23 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldNotProduceErrorForEnumWithAllowedDependency() {
+    @Disabled @Test void shouldReportErrorAboutForbiddenAnonymousSubclassInMethodBody() {
+        compileForbiddenSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private void foo() { Object target = new Target() {}; }\n" +
+            "}\n");
+
+        expect(/*some error*/);
+    }
+
+    @Test void shouldNotReportErrorForEnumWithAllowedDependency() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "import target.Target;\n" +
             "\n" +
             "enum Source {\n" +
@@ -231,8 +274,27 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldNotProduceErrorForAnnotationWithAllowedDependency() {
+    @Test void shouldReportErrorForEnumWithForbiddenDependency() {
+        compileForbiddenSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "enum Source {\n" +
+            "    FOO;\n" +
+            "    private Target target;\n" +
+            "}\n");
+
+        expect(
+            error("/source/Source.java", 82, 67, 89, 7, 20,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldNotReportErrorForAnnotationWithAllowedDependency() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public @interface Source {\n" +
@@ -242,8 +304,26 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Test void shouldNotProduceErrorForInterfaceWithAllowedDependency() {
+    @Test void shouldReportErrorForAnnotationWithForbiddenDependency() {
+        compileForbiddenSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public @interface Source {\n" +
+            "    Class<Target> value();\n" +
+            "}\n");
+
+        expect(
+            error("/source/Source.java", 85, 71, 93, 6, 19,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldNotReportErrorForInterfaceWithAllowedDependency() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public interface Source extends Target {\n" +
@@ -252,8 +332,25 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
+    @Test void shouldReportErrorForInterfaceWithForbiddenDependency() {
+        compileForbiddenSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;\n" +
+            "\n" +
+            "public interface Source extends Target {\n" +
+            "}\n");
+
+        expect(
+            error("/source/Source.java", 47, 40, 82, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
     @Test void shouldWarnAboutClassWithUnusedImport() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "import target.Target;\n" +
             "\n" +
             "public class Source{\n" +
@@ -267,7 +364,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldProduceErrorForForbiddenExtendsClassDependency() {
+    @Test void shouldReportErrorForForbiddenExtendsClassDependency() {
         compile(
             packageInfo("source"),
             file("source/Source", "" +
@@ -287,7 +384,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldProduceErrorForForbiddenExtendsInterfaceDependency() {
+    @Test void shouldReportErrorForForbiddenExtendsInterfaceDependency() {
         compile(
             packageInfo("source"),
             file("source/Source", "" +
@@ -307,7 +404,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldProduceErrorForForbiddenImplementsDependency() {
+    @Test void shouldReportErrorForForbiddenImplementsDependency() {
         compile(
             packageInfo("source"),
             file("source/Source", "" +
@@ -327,7 +424,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldProduceErrorsForTwoForbiddenAndOneAllowedFieldDependency() {
+    @Test void shouldReportErrorsForTwoForbiddenAndOneAllowedFieldDependency() {
         compile(
             packageInfo("source", "target3"),
             file("source/Source", "" +
@@ -379,7 +476,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldProduceErrorForForbiddenTypeBoundDependency() {
+    @Test void shouldReportErrorForForbiddenTypeBoundDependency() {
         compile(
             packageInfo("source"),
             file("source/Source", "" +
@@ -399,7 +496,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Test void shouldNotProduceErrorForDependencyToAnnotation() {
+    @Test void shouldNotReportErrorForDependencyToAnnotation() {
         compile(
             packageInfo("source"),
             file("source/Source", "" +
@@ -426,6 +523,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Test void shouldNotReportErrorAboutAllowedQualifiedFieldType() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "public class Source {\n" +
             "    private target.Target target;\n" +
             "}\n");
@@ -435,6 +534,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Test void shouldNotReportErrorAboutAllowedQualifiedMethodReturnType() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "public class Source {\n" +
             "    private target.Target foo() { return null; }\n" +
             "}\n");
@@ -444,6 +545,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Test void shouldNotReportErrorAboutAllowedQualifiedVariableInMethodBody() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "public class Source {\n" +
             "    private void foo() { target.Target target = null; }\n" +
             "}\n");
@@ -453,6 +556,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Test void shouldNotReportErrorAboutAllowedQualifiedAnonymousSubclassInMethodBody() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "public class Source {\n" +
             "    private void foo() { Object target = new target.Target() {}; }\n" +
             "}\n");
@@ -462,6 +567,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Test void shouldNotReportErrorAboutAllowedQualifiedAnonymousSubclassField() {
         compileSource("" +
+            "package source;\n" +
+            "\n" +
             "public class Source {\n" +
             "    private Object target = new target.Target() {};\n" +
             "}\n");
