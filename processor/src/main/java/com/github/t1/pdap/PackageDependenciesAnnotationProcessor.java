@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static java.util.stream.Collectors.joining;
 import static javax.lang.model.SourceVersion.RELEASE_8;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static javax.tools.Diagnostic.Kind.WARNING;
@@ -29,6 +30,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver())
             return false;
+        debug(() -> "process " + annotations + ": " + roundEnv.getRootElements());
         Dependencies dependencies = new Dependencies(getElementUtils());
         for (Element element : roundEnv.getRootElements()) {
             if (!isType(element))
@@ -48,6 +50,10 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
         String source = packageElement.getQualifiedName().toString();
         dependencies.scan(source);
         actualDependencies(typeElement).forEach((target, element) -> dependencies.use((element == null) ? typeElement : element, source, target));
+        debug(() -> "type " + typeElement + " has dependencies on " + dependencies.stream()
+            .filter(dependency -> dependency.source.equals(source))
+            .map(dependency -> dependency.target + " (" + dependency.type + ")")
+            .collect(joining("], [", "[", "]")));
     }
 
     private Map<String, Element> actualDependencies(TypeElement element) {

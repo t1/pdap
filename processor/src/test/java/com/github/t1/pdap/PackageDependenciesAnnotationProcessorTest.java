@@ -208,6 +208,17 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
+    @Disabled @Test void shouldNotReportErrorAboutAllowedAnonymousSubclassInMethodBody() {
+        compileSource("" +
+            "import target.Target;\n" +
+            "\n" +
+            "public class Source {\n" +
+            "    private void foo() { Object target = new Target() {}; }\n" +
+            "}\n");
+
+        expect();
+    }
+
     @Test void shouldNotProduceErrorForEnumWithAllowedDependency() {
         compileSource("" +
             "import target.Target;\n" +

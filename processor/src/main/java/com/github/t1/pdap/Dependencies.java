@@ -23,7 +23,18 @@ import static com.github.t1.pdap.Dependencies.Dependency.Type.SECONDARY;
 class Dependencies {
     static class Dependency {
         enum Type {
-            PRIMARY, SECONDARY, INVALID, FORBIDDEN, INFERRED, CYCLE;
+            /** A dependency allowed in the package-info */
+            PRIMARY,
+            /** A dependency allowed in the package-info of a super package */
+            SECONDARY,
+            /** A dependency declared in the package-info but the target package doesn't exist */
+            INVALID,
+            /** An actual dependency *not* in the allowed dependencies in the package-info */
+            FORBIDDEN,
+            /** An actual dependency when there is no package-info */
+            INFERRED,
+            /** An dependency that is part of a dependency cycle */
+            CYCLE;
 
             public Dependency dependency(String source, String target) { return new Dependency(source, target, this); }
         }

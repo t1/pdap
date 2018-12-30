@@ -4,8 +4,17 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic.Kind;
+import java.util.function.Supplier;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public abstract class AbstractAnnotationProcessor extends AbstractProcessor {
+
+    protected void debug(Supplier<String> message) {
+        if (isDebugEnabled())
+            other("[DEBUG] " + message.get());
+    }
+
+    protected boolean isDebugEnabled() { return Boolean.getBoolean(getClass().getCanonicalName() + "#DEBUG"); }
 
     protected void other(String message) { print(Kind.OTHER, message); }
 

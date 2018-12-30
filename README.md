@@ -102,3 +102,24 @@ Some things that would be really cool to add:
 * Wildcards: `DependsOn("**.controller")` allows dependencies on all packages ending with `.controller`,
   and `@DependsOn("javax.ws.rs+")` allows dependencies on `javax.ws.rs` and all subpackages.
 * `parent`-Variable: `DependsOn("${parent}.controller")` allows dependencies on a sibling `controller` package.
+
+# Warnings and more
+
+The `maven-compiler-plugin` normally doesn't show warnings. To see them, configure the plugin like this:
+
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <version>3.8.0</version>
+    <configuration>
+        <showWarnings>true</showWarnings>
+    </configuration>
+</plugin>
+``` 
+
+This also enables `INFO` and `OTHER` messages, but to see debug output, set a system property, e.g.:
+
+```
+mvn clean install -Dcom.github.t1.pdap.PackageDependenciesAnnotationProcessor#DEBUG
+```
