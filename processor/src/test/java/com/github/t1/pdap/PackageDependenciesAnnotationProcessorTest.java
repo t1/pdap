@@ -61,6 +61,15 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             "}\n");
     }
 
+    private StringJavaFileObject targetAnnotation() {
+        return file("target/Target", "" +
+            "package target;\n" +
+            "\n" +
+            "public @interface Target {\n" +
+            "    String value();\n" +
+            "}\n");
+    }
+
 
     @Test void shouldSimplyCompile() {
         compile(file("Simple", "" +
@@ -231,6 +240,26 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect(
             error("/source/Source.java", 81, 66, 88, 6, 20,
                 "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldNotReportErrorAboutForbiddenFieldAnnotation() {
+        compile(
+            packageInfo("source"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private @Target(\"t\") String target;\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            targetAnnotation());
+
+        expect(
+            warning("compiler.warn.proc.annotations.without.processors", "No processor claimed any of these annotations: target.Target")
         );
     }
 
@@ -509,12 +538,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n"),
 
             packageInfo("target"),
-            file("target/Target", "" +
-                "package target;\n" +
-                "\n" +
-                "public @interface Target {\n" +
-                "    String value();\n" +
-                "}\n"));
+            targetAnnotation());
 
         expect(
             warning("compiler.warn.proc.annotations.without.processors", "No processor claimed any of these annotations: target.Target")

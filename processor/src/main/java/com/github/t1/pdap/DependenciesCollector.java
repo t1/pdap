@@ -61,15 +61,19 @@ class DependenciesCollector {
 
             private boolean isNullOrEmpty(Symbol symbol) { return symbol == null || symbol.name.isEmpty(); }
 
+            private void removeAnnotationImports(Symbol symbol) {
+                if (symbol != null && symbol.getMetadata() != null)
+                    for (Compound attribute : symbol.getMetadata().getDeclarationAttributes())
+                        extraImports.remove(toString(((ClassType) attribute.getAnnotationType()).tsym.owner));
+            }
+
             @Override public void visitImport(JCImport tree) {
                 extraImports.add(toString(((JCFieldAccess) tree.getQualifiedIdentifier()).sym.owner));
                 super.visitImport(tree);
             }
 
             @Override public void visitClassDef(JCClassDecl classDecl) {
-                if (classDecl.sym != null && classDecl.sym.getMetadata() != null)
-                    for (Compound attribute : classDecl.sym.getMetadata().getDeclarationAttributes())
-                        extraImports.remove(toString(((ClassType) attribute.getAnnotationType()).tsym.owner));
+                removeAnnotationImports(classDecl.sym);
                 if (classDecl.getExtendsClause() != null)
                     addOwner(((JCIdent) classDecl.getExtendsClause()).sym, classDecl.sym);
                 for (JCExpression implementsClause : classDecl.getImplementsClause())
@@ -82,6 +86,7 @@ class DependenciesCollector {
 
             /** field */
             @Override public void visitVarDef(JCVariableDecl variable) {
+                removeAnnotationImports(variable.sym);
                 if (variable.getType() instanceof JCIdent) {
                     JCIdent ident = (JCIdent) variable.getType();
                     if (!isNullOrEmpty(ident.sym))
