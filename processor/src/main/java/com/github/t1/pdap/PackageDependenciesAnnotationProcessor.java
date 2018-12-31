@@ -53,10 +53,14 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
 
     private Map<String, Element> actualDependencies(TypeElement element) {
         return actualDependencies.computeIfAbsent(element.getQualifiedName(), name -> {
-            DependenciesCollector collector = new DependenciesCollector(getElementUtils(), element);
-            for (String extraImport : collector.extraImports)
-                warning("Import [" + extraImport + "] not found as dependency", element);
-            return collector.dependencies;
+            try {
+                DependenciesCollector collector = new DependenciesCollector(getElementUtils(), element);
+                for (String extraImport : collector.extraImports)
+                    warning("Import [" + extraImport + "] not found as dependency", element);
+                return collector.dependencies;
+            } catch (Exception e) {
+                throw new RuntimeException("can't collect dependencies from " + name, e);
+            }
         });
     }
 

@@ -143,16 +143,27 @@ class DependenciesCollector {
                 JCExpression methodSelect = methodInvocation.getMethodSelect();
                 if (methodSelect instanceof JCFieldAccess) {
                     JCFieldAccess fieldAccess = (JCFieldAccess) methodSelect;
-                    JCNewClass selected = (JCNewClass) fieldAccess.selected;
-                    JCIdent identifier = (JCIdent) selected.getIdentifier();
-                    resolveImport(identifier.name).ifPresent(targetSymbol -> {
-                        JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name);
-                        if (method != null) {
-                            JCIdent returnType = (JCIdent) method.getReturnType();
-                            PackageElement packageElement = elements.getPackageOf(returnType.sym);
-                            addName(packageElement.getQualifiedName().toString(), null);
-                        }
-                    });
+                    if (fieldAccess.selected instanceof JCNewClass) {
+                        JCNewClass selected = (JCNewClass) fieldAccess.selected;
+                        JCIdent identifier = (JCIdent) selected.getIdentifier();
+                        resolveImport(identifier.name).ifPresent(targetSymbol -> {
+                            JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name);
+                            if (method != null && method.getReturnType() instanceof JCIdent) {
+                                JCIdent returnType = (JCIdent) method.getReturnType();
+                                PackageElement packageElement = elements.getPackageOf(returnType.sym);
+                                addName(packageElement.getQualifiedName().toString(), null);
+                            }
+                        });
+                    } else if (fieldAccess.selected instanceof JCIdent) {
+                        JCIdent identifier = (JCIdent) fieldAccess.selected;
+                        resolveImport(identifier.name).ifPresent(targetSymbol -> {
+                            JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name);
+                            if (method != null) {
+                                PackageElement packageElement = elements.getPackageOf(method.sym);
+                                addName(packageElement.getQualifiedName().toString(), null);
+                            }
+                        });
+                    }
                 }
                 super.visitApply(methodInvocation);
             }

@@ -280,6 +280,60 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
+    @Test void shouldReportErrorAboutForbiddenMethodInvocation() {
+        compile(
+            packageInfo("source"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private void foo() {\n" +
+                "        new Target().bar();\n" +
+                "    }\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            file("target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "    public void bar() {}" +
+                "}\n"));
+
+        expect(
+            error("/source/Source.java", 47, 40, 122, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldReportErrorAboutForbiddenStaticMethodInvocation() {
+        compile(
+            packageInfo("source"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private void foo() { Target.bar(); }\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            file("target/Target", "" +
+                "package target;\n" +
+                "\n" +
+                "public class Target {\n" +
+                "    public static void bar() {}" +
+                "}\n"));
+
+        expect(
+            error("/source/Source.java", 47, 40, 104, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
     @Test void shouldNotReportErrorAboutAllowedAnonymousSubclassInMethodBody() {
         compileSource("" +
             "package source;\n" +
