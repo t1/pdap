@@ -13,6 +13,7 @@ import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCImport;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import com.sun.tools.javac.tree.JCTree.JCNewClass;
 import com.sun.tools.javac.tree.JCTree.JCTypeApply;
 import com.sun.tools.javac.tree.JCTree.JCTypeParameter;
@@ -22,6 +23,7 @@ import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Pair;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.util.Elements;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -118,6 +120,9 @@ class DependenciesCollector {
                         for (JCExpression typeArgument : ((JCTypeApply) returnType).getTypeArguments()) {
                             addOwner(((JCIdent) typeArgument).sym, method.sym);
                         }
+                    } else if (returnType instanceof JCIdent) {
+                        JCIdent identifier = (JCIdent) returnType;
+                        resolveImport(identifier.getName()).ifPresent(symbol -> addOwner(symbol, method.sym));
                     }
                 }
                 super.visitMethodDef(method);
@@ -134,11 +139,39 @@ class DependenciesCollector {
                 super.visitNewClass(tree);
             }
 
+            @Override public void visitApply(JCMethodInvocation methodInvocation) {
+                JCExpression methodSelect = methodInvocation.getMethodSelect();
+                if (methodSelect instanceof JCFieldAccess) {
+                    JCFieldAccess fieldAccess = (JCFieldAccess) methodSelect;
+                    JCNewClass selected = (JCNewClass) fieldAccess.selected;
+                    JCIdent identifier = (JCIdent) selected.getIdentifier();
+                    resolveImport(identifier.name).ifPresent(targetSymbol -> {
+                        JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name);
+                        if (method != null) {
+                            JCIdent returnType = (JCIdent) method.getReturnType();
+                            PackageElement packageElement = elements.getPackageOf(returnType.sym);
+                            addName(packageElement.getQualifiedName().toString(), null);
+                        }
+                    });
+                }
+                super.visitApply(methodInvocation);
+            }
+
             private Optional<Symbol> resolveImport(Name name) {
                 return compilationUnit.getImports().stream()
                     .filter(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).name.contentEquals(name))
                     .map(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).sym)
                     .findAny();
+            }
+
+            private JCMethodDecl findMethod(Symbol type, Name methodName) {
+                ClassSymbol targetElement = elements.getTypeElement(type.getQualifiedName());
+                JCClassDecl targetClass = (JCClassDecl) elements.getTree(targetElement);
+                for (JCTree member : targetClass.getMembers()) {
+                    if (member instanceof JCMethodDecl && ((JCMethodDecl) member).name.contentEquals(methodName))
+                        return (JCMethodDecl) member;
+                }
+                return null;
             }
         });
         dependencies.remove(classSymbol.packge().name.toString());

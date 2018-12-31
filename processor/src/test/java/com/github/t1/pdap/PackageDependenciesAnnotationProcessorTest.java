@@ -1,6 +1,5 @@
 package com.github.t1.pdap;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.stream.Stream;
@@ -307,6 +306,35 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect(
             // we'd like to report this on the method or even the assignment, not the class, but that's not easy to get by resp. possible
             error("/source/Source.java", 47, 40, 123, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
+    }
+
+    @Test void shouldNotReportErrorAboutAllowedMethodReturnType() {
+        compileSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;" +
+            "\n" +
+            "public class Source {\n" +
+            "    private Target foo() { return null; }\n" +
+            "}\n");
+
+        expect();
+    }
+
+    @Test void shouldReportErrorAboutForbiddenMethodReturnType() {
+        compileForbiddenSource("" +
+            "package source;\n" +
+            "\n" +
+            "import target.Target;" +
+            "\n" +
+            "public class Source {\n" +
+            "    private Target foo() { return null; }\n" +
+            "}\n");
+
+        expect(
+            error("/source/Source.java", 80, 65, 102, 5, 20,
                 "compiler.err.proc.messager", "Forbidden dependency on [target]")
         );
     }
@@ -721,7 +749,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Disabled @Test void shouldNotReportErrorAboutIndirectDependency() {
+    @Test void shouldNotReportErrorAboutAllowedIndirectDependency() {
         compile(
             packageInfo("source", "target1", "target2"),
             file("source/Source", "" +
@@ -751,5 +779,40 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n"));
 
         expect();
+    }
+
+    @Test void shouldReportErrorAboutForbiddenIndirectDependency() {
+        compile(
+            packageInfo("source", "target1"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target1.Target1;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private void foo() { Object target2 = new Target1().target2(); }\n" +
+                "}\n"),
+
+            packageInfo("target1", "target2"),
+            file("target1/Target1", "" +
+                "package target1;\n" +
+                "\n" +
+                "import target2.Target2;\n" +
+                "\n" +
+                "public class Target1 {\n" +
+                "    public Target2 target2() { return null; }\n" +
+                "}\n"),
+
+            packageInfo("target2"),
+            file("target2/Target2", "" +
+                "package target2;\n" +
+                "\n" +
+                "public class Target2 {\n" +
+                "}\n"));
+
+        expect(
+            error("/source/Source.java", 49, 42, 134, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target2]")
+        );
     }
 }

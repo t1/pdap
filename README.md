@@ -75,46 +75,11 @@ I haven't been using Eclipse for several years now, but it probably won't work w
 as we access the Abstract Syntax Tree from the Java compiler, and Eclipse is not compatible with that.
 
 
-# Status: Alpha
+# Status: Beta
 
-##### Qualified Names Not Recognized
+##### Dependencies Not Recognized
 
-Some qualified names used within the code *may* not be recognized.
-
-
-##### Indirect Dependencies Are Not Detected
-
-If you have three classes like this:
-
-```java
-package source;
-
-import target1.Target1;
-
-public class Source {
-    private void foo() { Object target2 = new Target1().target2(); }
-}
-```
-
-```java
-package target1;
-
-import target2.Target2;
-
-public class Target1 {
-    public Target2 target2() { return null; }
-}
-```
-
-```java
-package target2;
-
-public class Target2 {
-}
-```
-
-Then `Source` actually depends on `target1` as well as on `target2`.
-We still have to find out, how we can resolve this issue.
+Some dependencies in the AST *may* not yet be recognized.
 
 
 # Ideas
