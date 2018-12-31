@@ -18,30 +18,36 @@ import com.sun.tools.javac.tree.JCTree.JCTypeApply;
 import com.sun.tools.javac.tree.JCTree.JCTypeParameter;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeScanner;
+import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Pair;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.util.Elements;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 class DependenciesCollector {
+    private final JavacElements elements;
     private final ClassSymbol classSymbol;
     private final JCCompilationUnit compilationUnit;
 
     /** The imports that could not be found as dependencies */
     final Set<String> extraImports = new HashSet<>();
+    /** The dependencies found mapped to the first element that uses it */
     final Map<String, Element> dependencies = new HashMap<>();
 
-    DependenciesCollector(JavacElements elementUtils, ClassSymbol classSymbol) {
-        this.classSymbol = classSymbol;
-        this.compilationUnit = compilationUnit(elementUtils);
+    DependenciesCollector(Elements elements, Element classElement) {
+        this.elements = (JavacElements) elements;
+        this.classSymbol = (ClassSymbol) classElement;
+        this.compilationUnit = compilationUnit();
         collect();
     }
 
-    private JCCompilationUnit compilationUnit(JavacElements elementUtils) {
-        Pair<JCTree, JCCompilationUnit> tree = elementUtils.getTreeAndTopLevel(classSymbol, null, null);
+    private JCCompilationUnit compilationUnit() {
+        Pair<JCTree, JCCompilationUnit> tree = elements.getTreeAndTopLevel(classSymbol, null, null);
         if (tree == null || tree.snd == null)
             return null;
         return tree.snd;
@@ -89,14 +95,16 @@ class DependenciesCollector {
                 removeAnnotationImports(variable.sym);
                 if (variable.getType() instanceof JCIdent) {
                     JCIdent ident = (JCIdent) variable.getType();
-                    if (!isNullOrEmpty(ident.sym))
+                    if (ident.sym != null) {
                         dependencies.computeIfAbsent(toString(ident.sym.owner), name -> variable.sym);
+                    }
                 } else if (variable.getType() instanceof JCFieldAccess) {
                     JCFieldAccess fieldAccess = (JCFieldAccess) variable.getType();
-                    if (isNullOrEmpty(fieldAccess.sym)) {
+                    if (fieldAccess.sym == null) {
                         addName(((JCIdent) fieldAccess.selected).getName().toString(), variable.sym);
-                    } else
+                    } else {
                         addOwner(fieldAccess.sym, fieldAccess.sym);
+                    }
                 }
                 super.visitVarDef(variable);
             }
@@ -104,25 +112,33 @@ class DependenciesCollector {
             @Override public void visitMethodDef(JCMethodDecl method) {
                 JCTree returnType = method.getReturnType();
                 if (returnType != null) {
-                    if (returnType instanceof JCFieldAccess)
+                    if (returnType instanceof JCFieldAccess) {
                         addOwner(((JCFieldAccess) returnType).sym, method.sym);
-                    else if (returnType instanceof JCTypeApply)
-                        for (JCExpression typeArgument : ((JCTypeApply) returnType).getTypeArguments())
+                    } else if (returnType instanceof JCTypeApply) {
+                        for (JCExpression typeArgument : ((JCTypeApply) returnType).getTypeArguments()) {
                             addOwner(((JCIdent) typeArgument).sym, method.sym);
+                        }
+                    }
                 }
                 super.visitMethodDef(method);
             }
 
             @Override public void visitNewClass(JCNewClass tree) {
-                if (tree.getIdentifier() instanceof JCIdent) {
-                    JCIdent identifier = (JCIdent) tree.getIdentifier();
-                    if (identifier.sym != null)
-                        addOwner(identifier.sym, identifier.sym);
-                } else {
+                if (tree.getIdentifier() instanceof JCFieldAccess) {
                     JCFieldAccess identifier = (JCFieldAccess) tree.getIdentifier();
                     addName(((JCIdent) identifier.selected).name.toString(), identifier.sym);
+                } else if (tree.getIdentifier() instanceof JCIdent) {
+                    JCIdent identifier = (JCIdent) tree.getIdentifier();
+                    resolveImport(identifier.getName()).ifPresent(symbol -> addOwner(symbol, identifier.sym));
                 }
                 super.visitNewClass(tree);
+            }
+
+            private Optional<Symbol> resolveImport(Name name) {
+                return compilationUnit.getImports().stream()
+                    .filter(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).name.contentEquals(name))
+                    .map(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).sym)
+                    .findAny();
             }
         });
         dependencies.remove(classSymbol.packge().name.toString());

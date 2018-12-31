@@ -1,8 +1,6 @@
 package com.github.t1.pdap;
 
 import com.github.t1.pdap.Dependencies.Dependency;
-import com.sun.tools.javac.code.Symbol.ClassSymbol;
-import com.sun.tools.javac.model.JavacElements;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -21,7 +19,7 @@ import static javax.tools.Diagnostic.Kind.WARNING;
 
 @SupportedAnnotationTypes("com.github.t1.pdap.*")
 public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationProcessor {
-    private Map<Name, Map<String, Element>> actualDependencies = new HashMap<>();
+    private final Map<Name, Map<String, Element>> actualDependencies = new HashMap<>();
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
@@ -55,7 +53,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
 
     private Map<String, Element> actualDependencies(TypeElement element) {
         return actualDependencies.computeIfAbsent(element.getQualifiedName(), name -> {
-            DependenciesCollector collector = new DependenciesCollector((JavacElements) getElementUtils(), (ClassSymbol) element);
+            DependenciesCollector collector = new DependenciesCollector(getElementUtils(), element);
             for (String extraImport : collector.extraImports)
                 warning("Import [" + extraImport + "] not found as dependency", element);
             return collector.dependencies;

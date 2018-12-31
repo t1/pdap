@@ -243,6 +243,24 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
+    @Test void shouldNotReportErrorForFieldValueWithAllowedDependency() {
+        compile(
+            packageInfo("source", "target"),
+            file("source/Source", "" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {\n" +
+                "    private Object target = new Target();\n" +
+                "}\n"),
+
+            packageInfo("target"),
+            targetClass());
+
+        expect();
+    }
+
     @Test void shouldNotReportErrorAboutForbiddenFieldAnnotation() {
         compile(
             packageInfo("source"),
@@ -263,7 +281,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         );
     }
 
-    @Disabled @Test void shouldNotReportErrorAboutAllowedAnonymousSubclassInMethodBody() {
+    @Test void shouldNotReportErrorAboutAllowedAnonymousSubclassInMethodBody() {
         compileSource("" +
             "package source;\n" +
             "\n" +
@@ -276,7 +294,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         expect();
     }
 
-    @Disabled @Test void shouldReportErrorAboutForbiddenAnonymousSubclassInMethodBody() {
+    @Test void shouldReportErrorAboutForbiddenAnonymousSubclassInMethodBody() {
         compileForbiddenSource("" +
             "package source;\n" +
             "\n" +
@@ -286,7 +304,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             "    private void foo() { Object target = new Target() {}; }\n" +
             "}\n");
 
-        expect(/*some error*/);
+        expect(
+            // we'd like to report this on the method or even the assignment, not the class, but that's not easy to get by resp. possible
+            error("/source/Source.java", 47, 40, 123, 5, 8,
+                "compiler.err.proc.messager", "Forbidden dependency on [target]")
+        );
     }
 
     @Test void shouldNotReportErrorForEnumWithAllowedDependency() {

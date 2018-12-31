@@ -1,8 +1,9 @@
 # PDAP = Package Dependencies Annotation Processor
 
 The dependencies between packages are important to keep an eye on, so your architecture stays a Clean Architecture.
-E.g., a `boundary` package with your REST bindings is allowed to access the `controller` package with you business logic,
-but not the other way around, or you will find it difficult to refactor, or even think clearly about your layers.
+E.g., a `boundary` package with your REST bindings is allowed to access the `controller` package
+with you application and business logic, but not the other way around,
+or you will find it difficult to refactor, or even think clearly about your layers.
 
 Yet I've hardly seen any larger code base, where these rules are *not* violated!
 It's just way to easy to accidentally import a class from the wrong package.
@@ -35,13 +36,37 @@ The Java compiler detects the annotation processor in the dependency and execute
 If you have a dependency that is not allowed, it will report it as a compilation error;
 and if you have allowed a dependency that is not used, it will report it as a warning.
 
-You can add `@DependsOn` annotations on super packages as well;
-they will be merged with sub package annotations.
+You will be warned about packages without a `@DependsOn` annotation, but they won't be checked at all,
+which allows for a step-by-step introduction of dependency checking (and you *will* find violations ;)
+
+You can also add `@DependsOn` annotations to super packages: they will be merged with sub package annotations.
 This allows you to declare generally allowed dependencies only once.
 
-Note that packages without a `@DependsOn` annotation won't be checked at all,
-which allows for a step-by-step introduction of dependency checking (and you *will* find violations ;)
-A missing annotation on a leaf package will be reported as a warning.
+Please note that using an annotation does not create a strong dependency:
+A class can run perfectly fine without the annotations it uses on the classpath.
+Only when you access annotations via reflection, etc., they create a strong dependency.
+
+
+# Warnings and more
+
+The `maven-compiler-plugin` normally doesn't show warnings. To see them, configure the plugin like this:
+
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <version>3.8.0</version>
+    <configuration>
+        <showWarnings>true</showWarnings>
+    </configuration>
+</plugin>
+``` 
+
+This also enables `INFO` and `OTHER` messages, but to see debug output, set a system property, e.g.:
+
+```
+mvn clean install -Dcom.github.t1.pdap.PackageDependenciesAnnotationProcessor#DEBUG
+```
 
 
 # Eclipse
@@ -89,7 +114,6 @@ public class Target2 {
 ```
 
 Then `Source` actually depends on `target1` as well as on `target2`.
-But this is not directly in the Java abstract syntax tree (AST), this is only resolved when linking.
 We still have to find out, how we can resolve this issue.
 
 
@@ -98,28 +122,6 @@ We still have to find out, how we can resolve this issue.
 Some things that would be really cool to add:
 
 * Report dependency cycles.
-* Optionally report packages without `DependsOn`.
 * Wildcards: `DependsOn("**.controller")` allows dependencies on all packages ending with `.controller`,
   and `@DependsOn("javax.ws.rs+")` allows dependencies on `javax.ws.rs` and all subpackages.
 * `parent`-Variable: `DependsOn("${parent}.controller")` allows dependencies on a sibling `controller` package.
-
-# Warnings and more
-
-The `maven-compiler-plugin` normally doesn't show warnings. To see them, configure the plugin like this:
-
-```xml
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-compiler-plugin</artifactId>
-    <version>3.8.0</version>
-    <configuration>
-        <showWarnings>true</showWarnings>
-    </configuration>
-</plugin>
-``` 
-
-This also enables `INFO` and `OTHER` messages, but to see debug output, set a system property, e.g.:
-
-```
-mvn clean install -Dcom.github.t1.pdap.PackageDependenciesAnnotationProcessor#DEBUG
-```
