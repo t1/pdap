@@ -12,13 +12,16 @@ import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCImport;
+import com.sun.tools.javac.tree.JCTree.JCLiteral;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import com.sun.tools.javac.tree.JCTree.JCNewClass;
+import com.sun.tools.javac.tree.JCTree.JCPrimitiveTypeTree;
 import com.sun.tools.javac.tree.JCTree.JCTypeApply;
 import com.sun.tools.javac.tree.JCTree.JCTypeParameter;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.tree.TreeScanner;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Pair;
 
@@ -28,8 +31,9 @@ import javax.lang.model.util.Elements;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.Stack;
+import java.util.stream.IntStream;
 
 class DependenciesCollector {
     private final JavacElements elements;
@@ -59,6 +63,10 @@ class DependenciesCollector {
         if (compilationUnit == null)
             return;
         compilationUnit.accept(new TreeScanner() {
+            private Stack<Symbol> currentMember = new Stack<>();
+
+            private Symbol currentMember() { return currentMember.peek(); }
+
             private void addOwner(Symbol symbol, Element element) { addName(toString(symbol.owner), element); }
 
             private String toString(Symbol symbol) {
@@ -108,7 +116,13 @@ class DependenciesCollector {
                         addOwner(fieldAccess.sym, fieldAccess.sym);
                     }
                 }
-                super.visitVarDef(variable);
+                if (variable.sym == null) {
+                    super.visitVarDef(variable);
+                } else {
+                    this.currentMember.push(variable.sym);
+                    super.visitVarDef(variable);
+                    this.currentMember.pop();
+                }
             }
 
             @Override public void visitMethodDef(JCMethodDecl method) {
@@ -122,19 +136,27 @@ class DependenciesCollector {
                         }
                     } else if (returnType instanceof JCIdent) {
                         JCIdent identifier = (JCIdent) returnType;
-                        resolveImport(identifier.getName()).ifPresent(symbol -> addOwner(symbol, method.sym));
+                        ClassSymbol targetSymbol = resolveImport(identifier.getName());
+                        if (targetSymbol != null) {
+                            addOwner(targetSymbol, method.sym);
+                        }
                     }
                 }
+                this.currentMember.push(method.sym);
                 super.visitMethodDef(method);
+                this.currentMember.pop();
             }
 
             @Override public void visitNewClass(JCNewClass tree) {
                 if (tree.getIdentifier() instanceof JCFieldAccess) {
                     JCFieldAccess identifier = (JCFieldAccess) tree.getIdentifier();
-                    addName(((JCIdent) identifier.selected).name.toString(), identifier.sym);
+                    addName(((JCIdent) identifier.selected).name.toString(), currentMember());
                 } else if (tree.getIdentifier() instanceof JCIdent) {
                     JCIdent identifier = (JCIdent) tree.getIdentifier();
-                    resolveImport(identifier.getName()).ifPresent(symbol -> addOwner(symbol, identifier.sym));
+                    ClassSymbol targetSymbol = resolveImport(identifier.getName());
+                    if (targetSymbol != null) {
+                        addOwner(targetSymbol, currentMember());
+                    }
                 }
                 super.visitNewClass(tree);
             }
@@ -146,43 +168,65 @@ class DependenciesCollector {
                     if (fieldAccess.selected instanceof JCNewClass) {
                         JCNewClass selected = (JCNewClass) fieldAccess.selected;
                         JCIdent identifier = (JCIdent) selected.getIdentifier();
-                        resolveImport(identifier.name).ifPresent(targetSymbol -> {
-                            JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name);
-                            if (method != null && method.getReturnType() instanceof JCIdent) {
-                                JCIdent returnType = (JCIdent) method.getReturnType();
-                                PackageElement packageElement = elements.getPackageOf(returnType.sym);
-                                addName(packageElement.getQualifiedName().toString(), null);
-                            }
-                        });
+                        ClassSymbol targetSymbol = resolveImport(identifier.name);
+                        JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name, methodInvocation.getArguments());
+                        if (method != null && method.getReturnType() instanceof JCIdent) {
+                            JCIdent returnType = (JCIdent) method.getReturnType();
+                            PackageElement packageElement = elements.getPackageOf(returnType.sym);
+                            addName(packageElement.getQualifiedName().toString(), currentMember());
+                        }
                     } else if (fieldAccess.selected instanceof JCIdent) {
                         JCIdent identifier = (JCIdent) fieldAccess.selected;
-                        resolveImport(identifier.name).ifPresent(targetSymbol -> {
-                            JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name);
-                            if (method != null) {
-                                PackageElement packageElement = elements.getPackageOf(method.sym);
-                                addName(packageElement.getQualifiedName().toString(), null);
-                            }
-                        });
+                        ClassSymbol targetSymbol = resolveImport(identifier.name);
+                        JCMethodDecl method = findMethod(targetSymbol, fieldAccess.name, methodInvocation.getArguments());
+                        if (method != null) {
+                            PackageElement packageElement = elements.getPackageOf(method.sym);
+                            addName(packageElement.getQualifiedName().toString(), currentMember());
+                        }
                     }
                 }
                 super.visitApply(methodInvocation);
             }
 
-            private Optional<Symbol> resolveImport(Name name) {
-                return compilationUnit.getImports().stream()
-                    .filter(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).name.contentEquals(name))
-                    .map(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).sym)
-                    .findAny();
-            }
-
-            private JCMethodDecl findMethod(Symbol type, Name methodName) {
-                ClassSymbol targetElement = elements.getTypeElement(type.getQualifiedName());
-                JCClassDecl targetClass = (JCClassDecl) elements.getTree(targetElement);
+            private JCMethodDecl findMethod(ClassSymbol typeSymbol, Name methodName, List<JCExpression> arguments) {
+                JCClassDecl targetClass = (typeSymbol == null) ? null : (JCClassDecl) elements.getTree(typeSymbol);
+                if (targetClass == null)
+                    return null;
                 for (JCTree member : targetClass.getMembers()) {
-                    if (member instanceof JCMethodDecl && ((JCMethodDecl) member).name.contentEquals(methodName))
-                        return (JCMethodDecl) member;
+                    if (member instanceof JCMethodDecl) {
+                        JCMethodDecl method = (JCMethodDecl) member;
+                        if (method.name.contentEquals(methodName) && argMatch(method.getParameters(), arguments)) {
+                            return method;
+                        }
+                    }
                 }
                 return null;
+            }
+
+            private boolean argMatch(List<JCVariableDecl> expecteds, List<JCExpression> actuals) {
+                if (expecteds.size() != actuals.size())
+                    return false;
+                return IntStream.range(0, expecteds.size()).allMatch(i -> argMatch(expecteds.get(i).vartype, actuals.get(i)));
+            }
+
+            private boolean argMatch(JCExpression expected, JCExpression actual) {
+                return (
+                    expected instanceof JCPrimitiveTypeTree && actual instanceof JCLiteral
+                        && ((JCPrimitiveTypeTree) expected).typetag == ((JCLiteral) actual).typetag
+                ) || (
+                    expected instanceof JCIdent && actual instanceof JCLiteral
+                        && ((JCIdent) expected).type.toString().equals(((JCLiteral) actual).value.getClass().getName())
+                ) || (
+                    expected instanceof JCIdent && actual instanceof JCNewClass
+                        && ((JCIdent) expected).type.toString().equals(resolveImport(((JCIdent) ((JCNewClass) actual).getIdentifier()).name).className())
+                );
+            }
+
+            private ClassSymbol resolveImport(Name name) {
+                return compilationUnit.getImports().stream()
+                    .filter(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).name.contentEquals(name))
+                    .map(i -> (ClassSymbol) ((JCFieldAccess) i.getQualifiedIdentifier()).sym)
+                    .findAny().orElse(null);
             }
         });
         dependencies.remove(classSymbol.packge().name.toString());
