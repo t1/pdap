@@ -3,7 +3,9 @@ package com.github.t1.pdap;
 import com.sun.tools.javac.code.Attribute.Compound;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
+import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -115,6 +117,19 @@ class DependenciesCollector {
                     } else {
                         addOwner(fieldAccess.sym, fieldAccess.sym);
                     }
+                } else if (variable.getType() instanceof JCTypeApply) { // external type
+                    JCTypeApply typeApply = (JCTypeApply) variable.getType();
+                    addOwner(typeApply.type.tsym, variable.sym);
+                    for (Type typeParameter : typeApply.type.getTypeArguments()) {
+                        if (typeParameter instanceof ClassType)
+                            addOwner(((ClassType) typeParameter).tsym, variable.sym);
+                        if (typeParameter instanceof WildcardType) {
+                            if (typeParameter.isExtendsBound() && ((WildcardType) typeParameter).getExtendsBound() != null)
+                                addOwner(((WildcardType) typeParameter).getExtendsBound().tsym, variable.sym);
+                            if (typeParameter.isSuperBound() && ((WildcardType) typeParameter).getSuperBound() != null)
+                                addOwner(((WildcardType) typeParameter).getSuperBound().tsym, variable.sym);
+                        }
+                    }
                 }
                 if (variable.sym == null) {
                     super.visitVarDef(variable);
@@ -189,7 +204,7 @@ class DependenciesCollector {
             }
 
             private JCMethodDecl findMethod(ClassSymbol typeSymbol, Name methodName, List<JCExpression> arguments) {
-                JCClassDecl targetClass = (typeSymbol == null) ? null : (JCClassDecl) elements.getTree(typeSymbol);
+                JCClassDecl targetClass = (JCClassDecl) elements.getTree(typeSymbol);
                 if (targetClass == null)
                     return null;
                 for (JCTree member : targetClass.getMembers()) {

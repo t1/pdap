@@ -279,24 +279,26 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         }
 
         @Test void shouldReportErrorForFieldWithForbiddenDependencyOnNonCompiledClass() {
-            compileForbiddenSource("" +
-                "package source;\n" +
-                "\n" +
-                "import java.util.List;\n" +
-                "\n" +
-                "public class Source {\n" +
-                "    private List<?> list;\n" +
-                "}\n");
+            compile(
+                packageInfo("source"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.List;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private List<?> list;\n" +
+                    "}\n"));
 
             expect(
-                error("/source/Source.java", 81, 66, 88, 6, 20,
+                error("/source/Source.java", 83, 67, 88, 6, 21,
                     "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
             );
         }
 
         @Test void shouldReportErrorForFieldArgWithForbiddenDependencyOnNonCompiledClass() {
             compile(
-                packageInfo("source", "target"),
+                packageInfo("source"),
                 file("source/Source", "" +
                     "package source;\n" +
                     "\n" +
@@ -310,14 +312,14 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 targetEnum());
 
             expect(
-                error("/source/Source.java", 81, 66, 88, 6, 20,
+                error("/source/Source.java", 87, 66, 92, 6, 26,
                     "compiler.err.proc.messager", "Forbidden dependency on [target]")
             );
         }
 
-        @Test void shouldReportErrorForNonCompiledFieldArgWithForbiddenDependencyOnNonCompiledClass() {
+        @Test void shouldReportErrorForNonCompiledFieldTypeArgWithForbiddenDependencyOnNonCompiledClass() {
             compile(
-                packageInfo("source"),
+                packageInfo("source", "java.util"),
                 file("source/Source", "" +
                     "package source;\n" +
                     "\n" +
@@ -329,7 +331,45 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"));
 
             expect(
-                error("/source/Source.java", 81, 66, 88, 6, 20,
+                error("/source/Source.java", 121, 96, 126, 7, 30,
+                    "compiler.err.proc.messager", "Forbidden dependency on [java.math]")
+            );
+        }
+
+        @Test void shouldReportErrorForNonCompiledFieldExtendsTypeArgWithForbiddenDependencyOnNonCompiledClass() {
+            compile(
+                packageInfo("source", "java.util"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.List;\n" +
+                    "import java.math.BigInteger;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private List<? extends BigInteger> list;\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 131, 96, 136, 7, 40,
+                    "compiler.err.proc.messager", "Forbidden dependency on [java.math]")
+            );
+        }
+
+        @Test void shouldReportErrorForNonCompiledFieldSuperTypeArgWithForbiddenDependencyOnNonCompiledClass() {
+            compile(
+                packageInfo("source", "java.util"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.List;\n" +
+                    "import java.math.BigInteger;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private List<? super BigInteger> list;\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 129, 96, 134, 7, 38,
                     "compiler.err.proc.messager", "Forbidden dependency on [java.math]")
             );
         }
