@@ -1,5 +1,6 @@
 package com.github.t1.pdap;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -417,86 +418,38 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
         @Test void shouldReportErrorAboutForbiddenMethodInvocationWithoutArguments() {
             compile(
-                packageInfo("source"),
+                packageInfo("source", "target1"),
                 file("source/Source", "" +
                     "package source;\n" +
                     "\n" +
-                    "import target.Target;\n" +
+                    "import target1.Target1;\n" +
                     "\n" +
                     "public class Source {\n" +
                     "    private void foo() {\n" +
-                    "        new Target().bar();\n" +
+                    "        new Target1().bar();\n" +
                     "    }\n" +
                     "}\n"),
 
-                packageInfo("target"),
-                file("target/Target", "" +
-                    "package target;\n" +
+                packageInfo("target1", "target2"),
+                file("target1/Target1", "" +
+                    "package target1;\n" +
                     "\n" +
-                    "public class Target {\n" +
-                    "    public void bar() {}\n" +
-                    "}\n"));
-
-            expect(
-                error("/source/Source.java", 79, 66, 120, 6, 18,
-                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
-            );
-        }
-
-        @Test void shouldReportErrorAboutForbiddenMethodInvocationWithArgument() {
-            compile(
-                packageInfo("source"),
-                file("source/Source", "" +
-                    "package source;\n" +
+                    "import target2.Target2;\n" +
                     "\n" +
-                    "import target.Target;\n" +
-                    "\n" +
-                    "public class Source {\n" +
-                    "    private void foo() {\n" +
-                    "        new Target().bar(1);\n" +
-                    "    }\n" +
+                    "public class Target1 {\n" +
+                    "    public Target2 bar() { return null; }\n" +
                     "}\n"),
 
-                packageInfo("target"),
-                file("target/Target", "" +
-                    "package target;\n" +
+                packageInfo("target2"),
+                file("target2/Target2", "" +
+                    "package target2;\n" +
                     "\n" +
-                    "public class Target {\n" +
-                    "    public void bar(int i) {}\n" +
+                    "public class Target2 {\n" +
                     "}\n"));
 
             expect(
-                error("/source/Source.java", 79, 66, 121, 6, 18,
-                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
-            );
-        }
-
-        @Test void shouldReportErrorAboutForbiddenOverloadedMethodInvocation() {
-            compile(
-                packageInfo("source"),
-                file("source/Source", "" +
-                    "package source;\n" +
-                    "\n" +
-                    "import target.Target;\n" +
-                    "\n" +
-                    "public class Source {\n" +
-                    "    private void foo() {\n" +
-                    "        new Target().bar(1);\n" +
-                    "    }\n" +
-                    "}\n"),
-
-                packageInfo("target"),
-                file("target/Target", "" +
-                    "package target;\n" +
-                    "\n" +
-                    "public class Target {\n" +
-                    "    public void bar(String s) {}\n" +
-                    "    public void bar(int i) {}\n" +
-                    "}\n"));
-
-            expect(
-                error("/source/Source.java", 79, 66, 121, 6, 18,
-                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+                error("/source/Source.java", 81, 68, 123, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target2]")
             );
         }
 
@@ -528,7 +481,27 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             );
         }
 
-        @Test void shouldReportErrorAboutForbiddenStaticMethodInvocationToNonCompiledClass() {
+        @Test void shouldReportErrorAboutForbiddenStaticMethodInvocationToNonCompiledClassSameType() {
+            compile(
+                packageInfo("source"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.Arrays;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private void foo() {" +
+                    "        Arrays.asList((Object) \"bar\");\n" +
+                    "    }\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 82, 69, 133, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
+            );
+        }
+
+        @Disabled @Test void shouldReportErrorAboutForbiddenStaticMethodInvocationToNonCompiledClassSuperType() {
             compile(
                 packageInfo("source"),
                 file("source/Source", "" +
@@ -543,7 +516,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"));
 
             expect(
-                error("/source/Source.java", 47, 40, 104, 5, 8,
+                error("/source/Source.java", 82, 69, 133, 6, 18,
                     "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
             );
         }
@@ -919,7 +892,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             expect();
         }
 
-        @Test void shouldReportErrorAboutForbiddenQualifiedStaticMethodInvocationToNonCompiledClass() {
+        @Test void shouldReportErrorAboutForbiddenQualifiedStaticVararg0MethodInvocationToNonCompiledClass() {
             compile(
                 packageInfo("source"),
                 file("source/Source", "" +
@@ -927,12 +900,12 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "\n" +
                     "public class Source {\n" +
                     "    private void foo() {" +
-                    "        java.util.Arrays.asList(\"bar\");\n" +
+                    "        java.util.Arrays.asList();\n" +
                     "    }\n" +
                     "}\n"));
 
             expect(
-                error("/source/Source.java", 47, 40, 104, 6, 18,
+                error("/source/Source.java", 56, 43, 103, 4, 18,
                     "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
             );
         }
@@ -1215,6 +1188,141 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             expect(
                 error("/source/Source.java", 110, 97, 182, 7, 18,
                     "compiler.err.proc.messager", "Forbidden dependency on [target2]")
+            );
+        }
+
+        @Test void shouldReportErrorAboutForbiddenMethodInvocationWithArgument() {
+            compile(
+                packageInfo("source", "target1"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import target1.Target1;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private void foo() {\n" +
+                    "        new Target1().bar(1);\n" +
+                    "    }\n" +
+                    "}\n"),
+
+                packageInfo("target1", "target2"),
+                file("target1/Target1", "" +
+                    "package target1;\n" +
+                    "\n" +
+                    "import target2.Target2;\n" +
+                    "\n" +
+                    "public class Target1 {\n" +
+                    "    public Target2 bar(int i) { return null; }\n" +
+                    "}\n"),
+
+                packageInfo("target2"),
+                file("target2/Target2", "" +
+                    "package target2;\n" +
+                    "\n" +
+                    "public class Target2 {\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 81, 68, 124, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target2]")
+            );
+        }
+
+        @Test void shouldReportErrorAboutForbiddenOverloadedMethodInvocation() {
+            compile(
+                packageInfo("source", "target1"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import target1.Target1;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private void foo() {\n" +
+                    "        new Target1().bar(1);\n" +
+                    "    }\n" +
+                    "}\n"),
+
+                packageInfo("target1", "target2"),
+                file("target1/Target1", "" +
+                    "package target1;\n" +
+                    "\n" +
+                    "import target2.Target2;\n" +
+                    "\n" +
+                    "public class Target1 {\n" +
+                    "    public void bar(String s) {}\n" +
+                    "    public Target2 bar(int i) { return null; }\n" +
+                    "}\n"),
+
+                packageInfo("target2"),
+                file("target2/Target2", "" +
+                    "package target2;\n" +
+                    "\n" +
+                    "public class Target2 {\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 81, 68, 124, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target2]")
+            );
+        }
+
+        @Test void shouldReportErrorAboutForbiddenIndirectStaticVararg0MethodInvocationToNonCompiledClass() {
+            compile(
+                packageInfo("source"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.Arrays;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private void foo() {" +
+                    "        Arrays.asList();\n" +
+                    "    }\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 82, 69, 119, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
+            );
+        }
+
+        @Test void shouldReportErrorAboutForbiddenIndirectStaticVararg1MethodInvocationToNonCompiledClass() {
+            compile(
+                packageInfo("source"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.Arrays;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private void foo() {" +
+                    "        Arrays.asList((Object) \"bar\");\n" +
+                    "    }\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 82, 69, 133, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
+            );
+        }
+
+        @Test void shouldReportErrorAboutForbiddenIndirectStaticVararg2MethodInvocationToNonCompiledClass() {
+            compile(
+                packageInfo("source"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import java.util.Arrays;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private void foo() {" +
+                    "        Arrays.asList((Object) \"bar\", (Object) \"baz\");\n" +
+                    "    }\n" +
+                    "}\n"));
+
+            expect(
+                error("/source/Source.java", 82, 69, 149, 6, 18,
+                    "compiler.err.proc.messager", "Forbidden dependency on [java.util]")
             );
         }
     }
