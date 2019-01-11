@@ -59,7 +59,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
                     warning("Import [" + extraImport + "] not found as dependency", element);
                 return collector.dependencies;
             } catch (Exception e) {
-                throw new RuntimeException("can't collect dependencies from " + name, e);
+                throw new RuntimeException("can't collect dependencies from " + name + ": " + e, e);
             }
         });
     }
@@ -70,7 +70,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             if (message != null)
                 print(message.kind, message.message + " [" + dependency.target + "]", message.element);
         });
-        dependencies.missing().forEach(it -> warning("no @DependsOn annotation", it));
+        dependencies.missing().forEach(it -> warning("no @AllowDependenciesOn annotation", it));
     }
 
     private Message message(Dependency dependency) {
@@ -80,7 +80,7 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
             case SECONDARY:
                 return null;
             case INVALID:
-                return new Message(ERROR, "Invalid @DependsOn: unknown package", element(dependency));
+                return new Message(ERROR, "Invalid @AllowDependenciesOn: unknown package", element(dependency));
             case FORBIDDEN:
                 return new Message(ERROR, "Forbidden dependency on", element(dependency));
             case INFERRED:

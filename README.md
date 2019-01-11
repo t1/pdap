@@ -12,22 +12,22 @@ And do you really check the dependencies of a project with more than, e.g., 30 p
 
 This little annotation processor comes to your rescue:
 Just add a dependency to `com.github.t1:package.dependencies.annotation.processor`
-and annotate your packages (i.e. in the `package-info.java` files introduced in Java 1.6) with `@DependsOn`, e.g.:
+and annotate your packages (i.e. in the `package-info.java` files introduced in Java 1.6) with `@AllowDependenciesOn`, e.g.:
 
 ```java
-@DependsOn("controller")
+@AllowDependenciesOn("controller")
 package boundary;
 
-import com.github.t1.pdap.DependsOn;
+import com.github.t1.pdap.AllowDependenciesOn;
 ```
 
 ... for you `boundary` package, and:
 
 ```java
-@DependsOn()
+@AllowDependenciesOn()
 package controller;
 
-import com.github.t1.pdap.DependsOn;
+import com.github.t1.pdap.AllowDependenciesOn;
 ```
 
 ... for your `controller` package.
@@ -36,10 +36,10 @@ The Java compiler detects the annotation processor in the dependency and execute
 If you have a dependency that is not allowed, it will report it as a compilation error;
 and if you have allowed a dependency that is not used, it will report it as a warning.
 
-You will be warned about packages without a `@DependsOn` annotation, but they won't be checked at all,
+You will be warned about packages without a `@AllowDependenciesOn` annotation, but they won't be checked at all,
 which allows for a step-by-step introduction of dependency checking (and you *will* find violations ;)
 
-You can also add `@DependsOn` annotations to super packages: they will be merged with sub package annotations.
+You can also add `@AllowDependenciesOn` annotations to super packages: they will be merged with sub package annotations.
 This allows you to declare generally allowed dependencies only once.
 
 Please note that using an annotation does not create a strong dependency:
@@ -87,6 +87,6 @@ Some dependencies in the AST *may* not yet be recognized.
 Some things that would be really cool to add:
 
 * Report dependency cycles.
-* Wildcards: `DependsOn("**.controller")` allows dependencies on all packages ending with `.controller`,
-  and `@DependsOn("javax.ws.rs+")` allows dependencies on `javax.ws.rs` and all subpackages.
-* `parent`-Variable: `DependsOn("${parent}.controller")` allows dependencies on a sibling `controller` package.
+* Wildcards: `AllowDependenciesOn("**.controller")` allows dependencies on all packages ending with `.controller`,
+  and `@AllowDependenciesOn("javax.ws.rs+")` allows dependencies on `javax.ws.rs` and all subpackages.
+* `parent`-Variable: `AllowDependenciesOn("${parent}.controller")` allows dependencies on a sibling `controller` package.

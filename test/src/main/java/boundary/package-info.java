@@ -1,4 +1,4 @@
-@DependsOn("controller")
+@AllowDependenciesOn("controller")
 package boundary;
 
-import com.github.t1.pdap.DependsOn;
+import com.github.t1.pdap.AllowDependenciesOn;

@@ -29,10 +29,10 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     private StringJavaFileObject packageInfo(String packageName, String... dependencies) {
         return file(packageName.replace('.', '/') + "/package-info", "" +
-            "@DependsOn(" + dependenciesString(dependencies) + ")\n" +
+            "@AllowDependenciesOn(" + dependenciesString(dependencies) + ")\n" +
             "package " + packageName + ";\n" +
             "\n" +
-            "import com.github.t1.pdap.DependsOn;\n");
+            "import com.github.t1.pdap.AllowDependenciesOn;\n");
     }
 
     private String dependenciesString(String... dependencies) {
@@ -103,8 +103,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         }
     }
 
-    @Nested class DependsOnTests {
-        @Test void shouldReportErrorForInvalidDependsOn() {
+    @Nested class AllowDependenciesOnTests {
+        @Test void shouldReportErrorForInvalidDependencies() {
             compile(
                 packageInfo("source", "undefined"),
                 file("source/Source", "" +
@@ -114,12 +114,12 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"));
 
             expect(
-                error("/source/package-info.java", 0, 0, 77, 1, 1,
-                    "compiler.err.proc.messager", "Invalid @DependsOn: unknown package [undefined]")
+                error("/source/package-info.java", 0, 0, 97, 1, 1,
+                    "compiler.err.proc.messager", "Invalid @AllowDependenciesOn: unknown package [undefined]")
             );
         }
 
-        @Test void shouldReportErrorForInvalidSuperDependsOn() {
+        @Test void shouldReportErrorForInvalidSuperDependencies() {
             compile(
                 packageInfo("source", "undefined"),
                 packageInfo("source.sub"),
@@ -130,12 +130,12 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"));
 
             expect(
-                error("/source/package-info.java", 0, 0, 77, 1, 1,
-                    "compiler.err.proc.messager", "Invalid @DependsOn: unknown package [undefined]")
+                error("/source/package-info.java", 0, 0, 97, 1, 1,
+                    "compiler.err.proc.messager", "Invalid @AllowDependenciesOn: unknown package [undefined]")
             );
         }
 
-        @Test void shouldWarnAboutMissingDependsOn() {
+        @Test void shouldWarnAboutMissingDependencies() {
             compile(
                 file("source/package-info", "" +
                     "package source;"),
@@ -153,11 +153,11 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
             expect(
                 warning("/source/package-info.java", 0, 0, 15, 1, 1,
-                    "compiler.warn.proc.messager", "no @DependsOn annotation")
+                    "compiler.warn.proc.messager", "no @AllowDependenciesOn annotation")
             );
         }
 
-        @Test void shouldNotWarnAboutMissingSuperDependsOn() {
+        @Test void shouldNotWarnAboutMissingSuperDependencies() {
             compile(
                 packageInfo("source.sub", "target"),
                 file("source/sub/Source", "" +
@@ -209,7 +209,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 targetInterface());
 
             expect(
-                error("/source/package-info.java", 0, 0, 86, 1, 1,
+                error("/source/package-info.java", 0, 0, 106, 1, 1,
                     "compiler.err.proc.messager", "Cyclic dependency declared on [source]")
             );
         }
@@ -222,7 +222,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 "}\n");
 
             expect(
-                warning("/source/package-info.java", 0, 0, 74, 1, 1,
+                warning("/source/package-info.java", 0, 0, 94, 1, 1,
                     "compiler.warn.proc.messager", "Unused dependency on [target]")
             );
         }
@@ -696,7 +696,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             expect(
                 warning("/source/Source.java", 47, 40, 62, 5, 8,
                     "compiler.warn.proc.messager", "Import [target] not found as dependency"),
-                warning("/source/package-info.java", 0, 0, 74, 1, 1,
+                warning("/source/package-info.java", 0, 0, 94, 1, 1,
                     "compiler.warn.proc.messager", "Unused dependency on [target]")
             );
         }
@@ -982,8 +982,8 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         }
     }
 
-    @Nested class DependsOnInheritance {
-        @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithoutPackageDependsOn() {
+    @Nested class AllowDependenciesOnInheritance {
+        @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithoutPackageDependencies() {
             compile(
                 packageInfo("source", "target"),
                 file("source/sub/Source", "" +
@@ -1001,7 +1001,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             expect();
         }
 
-        @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithEmptyPackageDependsOn() {
+        @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithEmptyPackageDependencies() {
             compile(
                 packageInfo("source", "target"),
                 packageInfo("source.sub"),
@@ -1020,7 +1020,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             expect();
         }
 
-        @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithPackageDependsOnMerge() {
+        @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithPackageDependenciesMerge() {
             compile(
                 packageInfo("source", "target1"),
                 packageInfo("source.sub", "target2"),

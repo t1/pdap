@@ -56,16 +56,16 @@ class Dependencies {
 
     private final Elements elements;
     private final List<Dependency> dependencies = new ArrayList<>();
-    private final List<PackageElement> missingDependsOns = new ArrayList<>();
+    private final List<PackageElement> missingDependencies = new ArrayList<>();
 
     Dependencies(Elements elements) {
         this.elements = elements;
     }
 
     void scan(String source) {
-        DependsOnCollector collector = new DependsOnCollector(source);
+        DependenciesCollector collector = new DependenciesCollector(source);
         if (collector.all == null) {
-            missingDependsOns.add(elements.getPackageElement(source));
+            missingDependencies.add(elements.getPackageElement(source));
         } else {
             collector.all.forEach(target -> {
                 Type type = source.equals(target) ? CYCLE : collector.isPrimary(target) ? PRIMARY : SECONDARY;
@@ -97,38 +97,38 @@ class Dependencies {
         return missing().anyMatch(packageElement -> packageElement.getQualifiedName().toString().equals(source));
     }
 
-    Stream<PackageElement> missing() { return missingDependsOns.stream(); }
+    Stream<PackageElement> missing() { return missingDependencies.stream(); }
 
     Stream<Dependency> stream() { return dependencies.stream(); }
 
-    private class DependsOnCollector {
+    private class DependenciesCollector {
         Set<String> primary;
         Set<String> all;
         List<Entry<String, String>> invalid = new ArrayList<>();
 
-        DependsOnCollector(String source) {
-            scanDependsOn(source);
+        DependenciesCollector(String source) {
+            scanDependencies(source);
             if (all != null)
                 primary = new HashSet<>(all);
             while (source.contains(".")) {
                 source = source.substring(0, source.lastIndexOf('.'));
-                scanDependsOn(source);
+                scanDependencies(source);
             }
         }
 
-        private void scanDependsOn(String source) {
+        private void scanDependencies(String source) {
             PackageElement element = elements.getPackageElement(source);
             if (element == null)
                 return;
-            DependsOn annotation = element.getAnnotation(DependsOn.class);
+            AllowDependenciesOn annotation = element.getAnnotation(AllowDependenciesOn.class);
             if (annotation != null) {
                 if (all == null)
                     all = new HashSet<>();
-                all.addAll(resolveDependsOn(annotation, element));
+                all.addAll(resolveDependencies(annotation, element));
             }
         }
 
-        private List<String> resolveDependsOn(DependsOn annotation, PackageElement source) {
+        private List<String> resolveDependencies(AllowDependenciesOn annotation, PackageElement source) {
             List<String> allowed = new ArrayList<>();
             for (String target : annotation.value()) {
                 if (target.isEmpty())
