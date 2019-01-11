@@ -258,6 +258,24 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             );
         }
 
+        @Test void shouldReportErrorForSecondClassInCompilationUnitWithFieldWithForbiddenDependency() {
+            compileForbiddenSource("" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source {}\n" +
+                "\n" +
+                "class SubSource {\n" +
+                "    private Target target;\n" +
+                "}\n");
+
+            expect(
+                error("/source/Source.java", 101, 86, 108, 8, 20,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+            );
+        }
+
         @Test void shouldReportErrorForEnumFieldWithForbiddenDependency() {
             compile(
                 packageInfo("source"),
@@ -703,6 +721,27 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             );
         }
 
+        @Test void shouldReportErrorForForbiddenExtendsGenericClassDependency() {
+            compile(
+                packageInfo("source"),
+                file("source/Source", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import target.Target;\n" +
+                    "\n" +
+                    "public class Source extends Generic<Target> {}\n" +
+                    "\n" +
+                    "class Generic<T> {}\n"),
+
+                packageInfo("target"),
+                targetClass());
+
+            expect(
+                error("/source/Source.java", 47, 40, 86, 5, 8,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+            );
+        }
+
         @Test void shouldReportErrorForForbiddenExtendsInterfaceDependency() {
             compile(
                 packageInfo("source"),
@@ -739,6 +778,38 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
             expect(
                 error("/source/Source.java", 47, 40, 81, 5, 8,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+            );
+        }
+
+        @Test void shouldReportErrorForForbiddenSingleTypedImplementsDependency() {
+            compileForbiddenSource("" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source implements Generic<Target> {}\n" +
+                "\n" +
+                "interface Generic<T> {}\n");
+
+            expect(
+                error("/source/Source.java", 47, 40, 89, 5, 8,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+            );
+        }
+
+        @Test void shouldReportErrorForForbiddenSecondTypedImplementsDependency() {
+            compileForbiddenSource("" +
+                "package source;\n" +
+                "\n" +
+                "import target.Target;\n" +
+                "\n" +
+                "public class Source implements Generic<String, Target> {}\n" +
+                "\n" +
+                "interface Generic<T, U> {}\n");
+
+            expect(
+                error("/source/Source.java", 47, 40, 97, 5, 8,
                     "compiler.err.proc.messager", "Forbidden dependency on [target]")
             );
         }

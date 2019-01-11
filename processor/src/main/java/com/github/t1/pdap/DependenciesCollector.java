@@ -74,20 +74,8 @@ class DependenciesCollector {
 
             private Symbol currentMember() { return currentMember.peek(); }
 
-            private void addOwner(Symbol symbol, Element element) { addName(toString(symbol.owner), element); }
-
             private String toString(Symbol symbol) {
                 return (isNullOrEmpty(symbol.owner)) ? symbol.name.toString() : toString(symbol.owner) + "." + symbol.name;
-            }
-
-            private void addName(String name, Element element) { dependencies.putIfAbsent(name, element); }
-
-            private boolean isNullOrEmpty(Symbol symbol) { return symbol == null || symbol.name.isEmpty(); }
-
-            private void removeAnnotationImports(Symbol symbol) {
-                if (symbol != null && symbol.getMetadata() != null)
-                    for (Compound attribute : symbol.getMetadata().getDeclarationAttributes())
-                        extraImports.remove(toString(((ClassType) attribute.getAnnotationType()).tsym.owner));
             }
 
             @Override public void visitImport(JCImport tree) {
@@ -98,9 +86,9 @@ class DependenciesCollector {
             @Override public void visitClassDef(JCClassDecl classDecl) {
                 removeAnnotationImports(classDecl.sym);
                 if (classDecl.getExtendsClause() != null)
-                    addOwner(((JCIdent) classDecl.getExtendsClause()).sym, classDecl.sym);
+                    addType(classDecl.getExtendsClause(), classDecl.sym);
                 for (JCExpression implementsClause : classDecl.getImplementsClause())
-                    addOwner(((JCIdent) implementsClause).sym, classDecl.sym);
+                    addType(implementsClause, classDecl.sym);
                 for (JCTypeParameter typeParameter : classDecl.getTypeParameters())
                     for (JCExpression bound : typeParameter.getBounds())
                         addOwner(((JCIdent) bound).sym, classDecl.sym);
@@ -110,32 +98,7 @@ class DependenciesCollector {
             /** field */
             @Override public void visitVarDef(JCVariableDecl variable) {
                 removeAnnotationImports(variable.sym);
-                if (variable.getType() instanceof JCIdent) {
-                    JCIdent ident = (JCIdent) variable.getType();
-                    if (ident.sym != null) {
-                        dependencies.computeIfAbsent(toString(ident.sym.owner), name -> variable.sym);
-                    }
-                } else if (variable.getType() instanceof JCFieldAccess) {
-                    JCFieldAccess fieldAccess = (JCFieldAccess) variable.getType();
-                    if (fieldAccess.sym == null) {
-                        addName(((JCIdent) fieldAccess.selected).getName().toString(), variable.sym);
-                    } else {
-                        addOwner(fieldAccess.sym, fieldAccess.sym);
-                    }
-                } else if (variable.getType() instanceof JCTypeApply) { // external type
-                    JCTypeApply typeApply = (JCTypeApply) variable.getType();
-                    addOwner(typeApply.type.tsym, variable.sym);
-                    for (Type typeParameter : typeApply.type.getTypeArguments()) {
-                        if (typeParameter instanceof ClassType)
-                            addOwner(((ClassType) typeParameter).tsym, variable.sym);
-                        if (typeParameter instanceof WildcardType) {
-                            if (typeParameter.isExtendsBound() && ((WildcardType) typeParameter).getExtendsBound() != null)
-                                addOwner(((WildcardType) typeParameter).getExtendsBound().tsym, variable.sym);
-                            if (typeParameter.isSuperBound() && ((WildcardType) typeParameter).getSuperBound() != null)
-                                addOwner(((WildcardType) typeParameter).getSuperBound().tsym, variable.sym);
-                        }
-                    }
-                }
+                addType(variable.getType(), variable.sym);
                 if (variable.sym == null) {
                     super.visitVarDef(variable);
                 } else {
@@ -206,6 +169,48 @@ class DependenciesCollector {
                 }
                 super.visitApply(methodInvocation);
             }
+
+
+            private void removeAnnotationImports(Symbol symbol) {
+                if (symbol != null && symbol.getMetadata() != null)
+                    for (Compound attribute : symbol.getMetadata().getDeclarationAttributes())
+                        extraImports.remove(toString(((ClassType) attribute.getAnnotationType()).tsym.owner));
+            }
+
+            private void addType(JCTree type, Element element) {
+                if (type instanceof JCIdent) {
+                    JCIdent ident = (JCIdent) type;
+                    if (ident.sym != null) {
+                        dependencies.putIfAbsent(toString(ident.sym.owner), element);
+                    }
+                } else if (type instanceof JCFieldAccess) {
+                    JCFieldAccess fieldAccess = (JCFieldAccess) type;
+                    if (fieldAccess.sym == null) {
+                        addName(((JCIdent) fieldAccess.selected).getName().toString(), element);
+                    } else {
+                        addOwner(fieldAccess.sym, fieldAccess.sym);
+                    }
+                } else if (type instanceof JCTypeApply) { // external type
+                    JCTypeApply typeApply = (JCTypeApply) type;
+                    addOwner(typeApply.type.tsym, element);
+                    for (Type typeParameter : typeApply.type.getTypeArguments()) {
+                        if (typeParameter instanceof ClassType)
+                            addOwner(((ClassType) typeParameter).tsym, element);
+                        if (typeParameter instanceof WildcardType) {
+                            if (typeParameter.isExtendsBound() && ((WildcardType) typeParameter).getExtendsBound() != null)
+                                addOwner(((WildcardType) typeParameter).getExtendsBound().tsym, element);
+                            if (typeParameter.isSuperBound() && ((WildcardType) typeParameter).getSuperBound() != null)
+                                addOwner(((WildcardType) typeParameter).getSuperBound().tsym, element);
+                        }
+                    }
+                }
+            }
+
+            private void addOwner(Symbol symbol, Element element) { addName(toString(symbol.owner), element); }
+
+            private void addName(String name, Element element) { dependencies.putIfAbsent(name, element); }
+
+            private boolean isNullOrEmpty(Symbol symbol) { return symbol == null || symbol.name.isEmpty(); }
 
             private void addMethodOwner(JCMethodInvocation methodInvocation, JCFieldAccess fieldAccess, ClassSymbol targetSymbol) {
                 MethodSymbol method = findMethod(targetSymbol, fieldAccess.name, methodInvocation.getArguments());

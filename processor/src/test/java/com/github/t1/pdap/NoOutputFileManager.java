@@ -16,6 +16,10 @@ class NoOutputFileManager extends ForwardingJavaFileManager<StandardJavaFileMana
         return new NoOutputJavaFileObject(URI.create("string:///" + className.replace('.', '/') + kind.extension), kind);
     }
 
+    @Override public boolean isSameFile(FileObject a, FileObject b) {
+        return a.toUri().equals(b.toUri());
+    }
+
     private static final class NoOutputJavaFileObject extends SimpleJavaFileObject {
         NoOutputJavaFileObject(URI uri, Kind kind) { super(uri, kind); }
 
