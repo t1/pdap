@@ -124,9 +124,7 @@ class AbstractAnnotationProcessorTest {
     private final List<DiagnosticMatch> diagnostics = new ArrayList<>();
     private PackageDependenciesAnnotationProcessor pdap = new PackageDependenciesAnnotationProcessor();
 
-    StringJavaFileObject file(String file1, String source1) {
-        return new StringJavaFileObject(Paths.get(file1 + ".java"), source1);
-    }
+    StringJavaFileObject file(String file, String source) { return new StringJavaFileObject(Paths.get(file), source); }
 
     void compile(JavaFileObject... compilationUnits) {
         DiagnosticListener<JavaFileObject> diagnosticListener = diagnostic -> {

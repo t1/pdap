@@ -9,6 +9,7 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -53,14 +54,16 @@ public class PackageDependenciesAnnotationProcessor extends AbstractAnnotationPr
 
     private Map<String, Element> actualDependencies(TypeElement element) {
         return actualDependencies.computeIfAbsent(element.getQualifiedName(), name -> {
+            DependenciesCollector collector;
             try {
-                DependenciesCollector collector = new DependenciesCollector(getElementUtils(), element);
-                for (String extraImport : collector.extraImports)
-                    warning("Import [" + extraImport + "] not found as dependency", element);
-                return collector.dependencies;
+                collector = new DependenciesCollector(getElementUtils(), element);
             } catch (Exception e) {
-                throw new RuntimeException("can't collect dependencies from " + name + ": " + e, e);
+                throw new RuntimeException("can't collect dependencies from " + element + ":\n  " + e
+                    + Arrays.stream(e.getStackTrace()).map(StackTraceElement::toString).collect(joining("\n  ")), e);
             }
+            for (String extraImport : collector.extraImports)
+                warning("Import [" + extraImport + "] not found as dependency", element);
+            return collector.dependencies;
         });
     }
 

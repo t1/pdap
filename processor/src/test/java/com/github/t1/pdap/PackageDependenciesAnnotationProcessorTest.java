@@ -12,7 +12,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     private void compileSource(String source) {
         compile(
             packageInfo("source", "target"),
-            file("source/Source", source),
+            file("source/Source.java", source),
 
             packageInfo("target"),
             targetInterface());
@@ -21,14 +21,14 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     private void compileForbiddenSource(String source) {
         compile(
             packageInfo("source"),
-            file("source/Source", source),
+            file("source/Source.java", source),
 
             packageInfo("target"),
             targetInterface());
     }
 
     private StringJavaFileObject packageInfo(String packageName, String... dependencies) {
-        return file(packageName.replace('.', '/') + "/package-info", "" +
+        return file(packageName.replace('.', '/') + "/package-info.java", "" +
             "@AllowDependenciesOn(" + dependenciesString(dependencies) + ")\n" +
             "package " + packageName + ";\n" +
             "\n" +
@@ -47,7 +47,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     private StringJavaFileObject targetInterface() {
-        return file("target/Target", "" +
+        return file("target/Target.java", "" +
             "package target;\n" +
             "\n" +
             "public interface Target {\n" +
@@ -55,7 +55,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     private StringJavaFileObject targetClass() {
-        return file("target/Target", "" +
+        return file("target/Target.java", "" +
             "package target;\n" +
             "\n" +
             "public class Target {\n" +
@@ -63,7 +63,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     private StringJavaFileObject targetAnnotation() {
-        return file("target/Target", "" +
+        return file("target/Target.java", "" +
             "package target;\n" +
             "\n" +
             "public @interface Target {\n" +
@@ -72,7 +72,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
     }
 
     private StringJavaFileObject targetEnum() {
-        return file("target/Target", "" +
+        return file("target/Target.java", "" +
             "package target;\n" +
             "\n" +
             "public enum Target {\n" +
@@ -83,7 +83,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
     @Nested class BasicCompilerTests {
         @Test void shouldSimplyCompile() {
-            compile(file("Simple", "" +
+            compile(file("Simple.java", "" +
                 "public class Simple {\n" +
                 "}"));
 
@@ -91,7 +91,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         }
 
         @Test void shouldReportErrorForUnknownSymbol() {
-            compile(file("Failing", "" +
+            compile(file("Failing.java", "" +
                 "@UnknownAnnotation\n" +
                 "public class Failing {\n" +
                 "}"));
@@ -101,13 +101,27 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                 error("/Failing.java", 1, 1, 18, 1, 2,
                     "compiler.err.cant.resolve", "cannot find symbol\n  symbol: class UnknownAnnotation"));
         }
+
+        @Test void shouldNotReportErrorAboutMethodInvocationWithOnJavaLangType() {
+            compile(
+                packageInfo("source"),
+                file("source/Source.java", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    String value;\n" +
+                    "    public void foo() { this.value.isEmpty(); }\n" +
+                    "}\n"));
+
+            expect();
+        }
     }
 
     @Nested class AllowDependenciesOnTests {
         @Test void shouldReportErrorForInvalidDependencies() {
             compile(
                 packageInfo("source", "undefined"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "public class Source {\n" +
@@ -123,7 +137,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             compile(
                 packageInfo("source", "undefined"),
                 packageInfo("source.sub"),
-                file("source/sub/Source", "" +
+                file("source/sub/Source.java", "" +
                     "package source.sub;\n" +
                     "\n" +
                     "public class Source {\n" +
@@ -137,9 +151,9 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
 
         @Test void shouldWarnAboutMissingDependencies() {
             compile(
-                file("source/package-info", "" +
+                file("source/package-info.java", "" +
                     "package source;"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -160,7 +174,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldNotWarnAboutMissingSuperDependencies() {
             compile(
                 packageInfo("source.sub", "target"),
-                file("source/sub/Source", "" +
+                file("source/sub/Source.java", "" +
                     "package source.sub;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -178,7 +192,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldNotWarnAboutMissingSuperPackageInfo() {
             compile(
                 packageInfo("source.sub1.sub2", "target"),
-                file("source/sub1/sub2/Source", "" +
+                file("source/sub1/sub2/Source.java", "" +
                     "package source.sub1.sub2;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -196,7 +210,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForDependencyOnSelf() {
             compile(
                 packageInfo("source", "source", "target"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -279,7 +293,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForEnumFieldWithForbiddenDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -297,10 +311,31 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             );
         }
 
+        @Test void shouldReportErrorForImportedStaticEnumValueWithForbiddenDependency() {
+            compile(
+                packageInfo("source"),
+                file("source/Source.java", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import static target.Target.FOO;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private Object target = FOO;\n" +
+                    "}\n"),
+
+                packageInfo("target"),
+                targetEnum());
+
+            expect(
+                error("/source/Source.java", 92, 77, 105, 6, 20,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+            );
+        }
+
         @Test void shouldReportErrorForFieldWithForbiddenDependencyOnNonCompiledClass() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.List;\n" +
@@ -318,7 +353,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForFieldArgWithForbiddenDependencyOnNonCompiledClass() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -339,7 +374,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForNonCompiledFieldTypeArgWithForbiddenDependencyOnNonCompiledClass() {
             compile(
                 packageInfo("source", "java.util"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.List;\n" +
@@ -358,7 +393,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForNonCompiledFieldExtendsTypeArgWithForbiddenDependencyOnNonCompiledClass() {
             compile(
                 packageInfo("source", "java.util"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.List;\n" +
@@ -377,7 +412,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForNonCompiledFieldSuperTypeArgWithForbiddenDependencyOnNonCompiledClass() {
             compile(
                 packageInfo("source", "java.util"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.List;\n" +
@@ -396,7 +431,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForFieldValueWithForbiddenDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -417,7 +452,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldNotReportErrorAboutForbiddenFieldAnnotation() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -437,7 +472,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenMethodInvocationWithoutArguments() {
             compile(
                 packageInfo("source", "target1"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -449,7 +484,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -459,7 +494,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -474,7 +509,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenStaticMethodInvocation() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -486,7 +521,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target"),
-                file("target/Target", "" +
+                file("target/Target.java", "" +
                     "package target;\n" +
                     "\n" +
                     "public class Target {\n" +
@@ -502,7 +537,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenStaticMethodInvocationToNonCompiledClassSameType() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.Arrays;\n" +
@@ -522,7 +557,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Disabled @Test void shouldReportErrorAboutForbiddenStaticMethodInvocationToNonCompiledClassSuperType() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.Arrays;\n" +
@@ -704,7 +739,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForForbiddenExtendsClassDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -724,7 +759,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForForbiddenExtendsGenericClassDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -745,7 +780,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForForbiddenExtendsInterfaceDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -765,7 +800,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForForbiddenImplementsDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -817,7 +852,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorsForTwoForbiddenAndOneAllowedFieldDependency() {
             compile(
                 packageInfo("source", "target3"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1a;\n" +
@@ -833,26 +868,26 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1"),
-                file("target1/Target1a", "" +
+                file("target1/Target1a.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "public class Target1a {\n" +
                     "}\n"),
-                file("target1/Target1b", "" +
+                file("target1/Target1b.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "public class Target1b {\n" +
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
                     "}\n"),
 
                 packageInfo("target3"),
-                file("target3/Target3", "" +
+                file("target3/Target3.java", "" +
                     "package target3;\n" +
                     "\n" +
                     "public class Target3 {\n" +
@@ -869,7 +904,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorForForbiddenTypeBoundDependency() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -889,7 +924,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldNotReportErrorForDependencyToAnnotation() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -966,7 +1001,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenQualifiedStaticVararg0MethodInvocationToNonCompiledClass() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "public class Source {\n" +
@@ -986,7 +1021,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldNotReportErrorAboutSuperPackageAllowingDependencyWithoutPackageDependencies() {
             compile(
                 packageInfo("source", "target"),
-                file("source/sub/Source", "" +
+                file("source/sub/Source.java", "" +
                     "package source.sub;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -1005,7 +1040,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             compile(
                 packageInfo("source", "target"),
                 packageInfo("source.sub"),
-                file("source/sub/Source", "" +
+                file("source/sub/Source.java", "" +
                     "package source.sub;\n" +
                     "\n" +
                     "import target.Target;\n" +
@@ -1024,7 +1059,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             compile(
                 packageInfo("source", "target1"),
                 packageInfo("source.sub", "target2"),
-                file("source/sub/Source", "" +
+                file("source/sub/Source.java", "" +
                     "package source.sub;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1036,14 +1071,14 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "public interface Target1 {\n" +
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public interface Target2 {\n" +
@@ -1056,7 +1091,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             compile(
                 packageInfo("source", "target1"),
                 packageInfo("source.sub", "target2"),
-                file("source/sub/Source", "" +
+                file("source/sub/Source.java", "" +
                     "package source.sub;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1066,14 +1101,14 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "public interface Target1 {\n" +
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public interface Target2 {\n" +
@@ -1087,7 +1122,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldNotReportErrorAboutAllowedIndirectDependency() {
             compile(
                 packageInfo("source", "target1", "target2"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1097,7 +1132,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1107,7 +1142,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1119,7 +1154,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectDependency() {
             compile(
                 packageInfo("source", "target1"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1129,7 +1164,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1139,7 +1174,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1154,7 +1189,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectDependencyWithOverloadedPrimitiveMethods() {
             compile(
                 packageInfo("source", "target1"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1164,7 +1199,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1175,7 +1210,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1190,7 +1225,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectDependencyWithOverloadedNonPrimitiveLiteralMethods() {
             compile(
                 packageInfo("source", "target1"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1200,7 +1235,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2", "java.math"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1212,7 +1247,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1227,7 +1262,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectDependencyWithOverloadedNonPrimitiveValueMethods() {
             compile(
                 packageInfo("source", "target1", "java.math"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1238,7 +1273,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2", "java.math"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1250,7 +1285,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1265,7 +1300,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenMethodInvocationWithArgument() {
             compile(
                 packageInfo("source", "target1"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1277,7 +1312,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1287,7 +1322,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1302,7 +1337,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenOverloadedMethodInvocation() {
             compile(
                 packageInfo("source", "target1"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import target1.Target1;\n" +
@@ -1314,7 +1349,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target1", "target2"),
-                file("target1/Target1", "" +
+                file("target1/Target1.java", "" +
                     "package target1;\n" +
                     "\n" +
                     "import target2.Target2;\n" +
@@ -1325,7 +1360,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
                     "}\n"),
 
                 packageInfo("target2"),
-                file("target2/Target2", "" +
+                file("target2/Target2.java", "" +
                     "package target2;\n" +
                     "\n" +
                     "public class Target2 {\n" +
@@ -1340,7 +1375,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectStaticVararg0MethodInvocationToNonCompiledClass() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.Arrays;\n" +
@@ -1360,7 +1395,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectStaticVararg1MethodInvocationToNonCompiledClass() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.Arrays;\n" +
@@ -1380,7 +1415,7 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
         @Test void shouldReportErrorAboutForbiddenIndirectStaticVararg2MethodInvocationToNonCompiledClass() {
             compile(
                 packageInfo("source"),
-                file("source/Source", "" +
+                file("source/Source.java", "" +
                     "package source;\n" +
                     "\n" +
                     "import java.util.Arrays;\n" +

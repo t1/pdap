@@ -13,6 +13,7 @@ import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.model.FilteredMemberList;
 import com.sun.tools.javac.model.JavacElements;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
@@ -70,6 +71,7 @@ class DependenciesCollector {
         if (compilationUnit == null)
             return;
         compilationUnit.accept(new TreeScanner() {
+            private boolean ignoreIdentifiers = false;
             private Stack<Symbol> currentMember = new Stack<>();
 
             private Symbol currentMember() { return currentMember.peek(); }
@@ -79,7 +81,10 @@ class DependenciesCollector {
             }
 
             @Override public void visitImport(JCImport tree) {
-                extraImports.add(toString(((JCFieldAccess) tree.getQualifiedIdentifier()).sym.owner));
+                JCFieldAccess fieldAccess = (JCFieldAccess) tree.getQualifiedIdentifier();
+                if (tree.staticImport)
+                    fieldAccess = (JCFieldAccess) fieldAccess.selected;
+                extraImports.add(toString(fieldAccess.sym.owner));
                 super.visitImport(tree);
             }
 
@@ -106,6 +111,22 @@ class DependenciesCollector {
                     super.visitVarDef(variable);
                     this.currentMember.pop();
                 }
+            }
+
+            @Override public void visitIdent(JCIdent identifier) {
+                if (!currentMember.isEmpty() && !ignoreIdentifiers) {
+                    ClassSymbol targetSymbol = resolve(identifier.getName());
+                    if (targetSymbol != null) {
+                        addOwner(targetSymbol, currentMember());
+                    }
+                }
+                super.visitIdent(identifier);
+            }
+
+            @Override public void visitAnnotation(JCAnnotation jcAnnotation) {
+                ignoreIdentifiers = true;
+                super.visitAnnotation(jcAnnotation);
+                ignoreIdentifiers = false;
             }
 
             @Override public void visitMethodDef(JCMethodDecl method) {
@@ -164,7 +185,8 @@ class DependenciesCollector {
                     } else if (fieldAccess.selected instanceof JCFieldAccess) {
                         JCFieldAccess selected = (JCFieldAccess) fieldAccess.selected;
                         ClassSymbol targetElement = elements.getTypeElement(selected.toString());
-                        addMethodOwner(methodInvocation, fieldAccess, targetElement);
+                        if (targetElement != null)
+                            addMethodOwner(methodInvocation, fieldAccess, targetElement);
                     }
                 }
                 super.visitApply(methodInvocation);
@@ -284,7 +306,12 @@ class DependenciesCollector {
             private ClassSymbol resolve(Name name) {
                 return compilationUnit.getImports().stream()
                     .filter(i -> ((JCFieldAccess) i.getQualifiedIdentifier()).name.contentEquals(name))
-                    .map(i -> (ClassSymbol) ((JCFieldAccess) i.getQualifiedIdentifier()).sym)
+                    .map(i -> (ClassSymbol) (
+                            i.isStatic()
+                                ? ((JCFieldAccess) ((JCFieldAccess) i.getQualifiedIdentifier()).selected).sym
+                                : ((JCFieldAccess) i.getQualifiedIdentifier()).sym
+                        )
+                    )
                     .findAny().orElseGet(() -> {
                         ClassSymbol typeElement = elements.getTypeElement(name);
                         if (typeElement == null)
