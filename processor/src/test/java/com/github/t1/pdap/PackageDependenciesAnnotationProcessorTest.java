@@ -332,6 +332,27 @@ class PackageDependenciesAnnotationProcessorTest extends AbstractAnnotationProce
             );
         }
 
+        @Disabled @Test void shouldReportErrorForWildcardImportedStaticEnumValueWithForbiddenDependency() {
+            compile(
+                packageInfo("source"),
+                file("source/Source.java", "" +
+                    "package source;\n" +
+                    "\n" +
+                    "import static target.Target.*;\n" +
+                    "\n" +
+                    "public class Source {\n" +
+                    "    private Object target = FOO;\n" +
+                    "}\n"),
+
+                packageInfo("target"),
+                targetEnum());
+
+            expect(
+                error("/source/Source.java", 92, 77, 105, 6, 20,
+                    "compiler.err.proc.messager", "Forbidden dependency on [target]")
+            );
+        }
+
         @Test void shouldReportErrorForFieldWithForbiddenDependencyOnNonCompiledClass() {
             compile(
                 packageInfo("source"),
